@@ -60,6 +60,13 @@ reused across pipeline partners. LEA settings belong to the named pairing.
 Every trial uses the complete declared calibration set with uniform averaging.
 These full campaigns can take substantially longer than dataset generation.
 
+The recorded comparison queue is started/resumed with
+`uv run python scripts/run_campaign.py --workers 2`. It runs the fifteen
+upstream-swap pairings in both tracks/regimes, the external shadow selection,
+then frozen test evaluation. Progress is in
+`runs/development/campaign/report.md`; `scripts/report_campaign.py --watch`
+keeps that report current. See the execution record for exact counts and phases.
+
 Test evaluation requires a calibration freeze and checks the code, data,
 observation manifests and reference-source hashes. A missing acquisition is an
 error, not a reason to silently evaluate fewer cases. Failed LEA calls return

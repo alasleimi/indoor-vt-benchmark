@@ -32,24 +32,22 @@ OSPA/F1, interrupted calibration replay, estimator information isolation and
 versioned frontend replay. See the recorded validation report for the current
 test count and source hash.
 
-## Live development generation
+## Completed development generation
 
 Required native acquisitions: **352** (16 rooms x 2 APs x 11 acquisitions).
-These contain 32,000 query-channel frames plus the realized survey frames.
+These contain 32,000 query-channel frames and 8,888 survey-channel frames:
+**40,888 native measurements** in total.
 Each acquisition produces ten direct conditions and three receiver conditions:
 **4,576 acquisition/condition artifacts**. A+B reuses A and B.
 
-The machine runs four native workers. A hidden finisher is attached to the
-initial simulator driver; it starts a resume pass when that driver exits and
-acquisitions remain. It also derives observations as native receipts arrive.
-Once native generation is complete, it independently replays the five-box pilot
-with its recorded seed and compares native bytes before the final archive audit.
-The current authoritative state is
-`runs/development/generation/status.json`, with logs alongside it. Final native
-and observation validation is written to `data/development/archive_audit.json`.
-`finished: true` requires all acquisitions, all observations and a successful
-audit. An unexpected frontend/audit failure is recorded and requires diagnosis;
-it is never converted into a successful completion.
+All 352 acquisitions and all 4,576 condition artifacts are complete. The final
+audit found no missing acquisitions or observations. All 32 survey channels
+passed the reference-source geometry check; maximum native image discrepancy
+was 0.001204 m. An independent five-box pilot replay reproduced the exact native
+JSON hash with the same simulator. The NIST workers stopped after completion.
+
+`runs/development/generation/status.json` records `finished: true` and the replay
+hashes. `data/development/archive_audit.json` records the complete archive audit.
 
 To resume after a machine shutdown, run this once from the repository:
 
@@ -63,12 +61,48 @@ that driver instead of duplicating its jobs. The finisher's own namespace lock
 prevents duplicate finisher instances. Processes cannot continue while the
 computer is shut down or asleep.
 
-## Still to execute
+## Calibration and evaluation campaign
 
-Full scientific calibration searches, shadow comparisons and frozen test comparisons have
-not yet run. They require the complete verified observation dataset and may
-take much longer than propagation. No pilot score is a publication result, and
-the 2019 adapter must retain its assumption label in any comparison.
+Full scientific calibration started on 2026-10-21. The persistent queue runs
+two jobs concurrently, with one numerical-library thread per newly launched
+worker. It attached to the first receiver job already in progress. No test
+evaluation runs until all primary calibration and shadow selections finish.
+
+The comparison matrix swaps each of the twelve VT entries into MPUrge-MAP plus
+SMART-LEA, and swaps the other three initial localizers into MPUrge-local plus
+SMART-LEA. This gives fifteen distinct pairings. Each runs in two tracks and two
+regimes: **60 primary calibrations and 60 frozen test evaluations**. Shared
+component-mode upstream searches are reused across pairings.
+
+The eight shadow methods run in both spatial scopes, tracks and regimes:
+**64 calibration comparisons** against the canonical calibrated MPUrge result.
+Only candidates passing the 5% gate receive a final frozen pipeline and test
+evaluation. The queue has 64 corresponding conditional evaluation jobs; a
+nonqualifier records a skip without loading test observations. Qualifying code
+remains external through the campaign so registry changes cannot invalidate
+existing freezes. Importing eligible implementations follows the campaign audit.
+
+All **248 queue jobs** are recorded in
+`runs/development/campaign/specification.json`. The queue records its own source
+hash and external shadow hashes separately from the unchanged estimator hash.
+It locks shared searches, retries a failed process once, and blocks later phases
+if a failure remains unresolved. It can reattach to surviving child processes
+using PID plus creation identity after a runner interruption.
+
+Live progress and completed results are in
+`runs/development/campaign/report.md` and `report.json`. The detailed status and
+per-job logs are alongside them. Completed candidate counts are distinct from
+completed pipeline jobs. Full searches can take much longer than propagation.
+
+```powershell
+uv run python scripts/run_campaign.py --workers 2
+uv run python scripts/report_campaign.py --watch
+```
+
+These commands resume the recorded campaign. Do not edit estimator settings or
+shadow implementations during it: the queue checks those hashes and stops
+launching new work if they change. No pilot score is a publication result, and
+the 2019 adapter retains its assumption label in every comparison.
 
 Both complete calibration/freeze/test code paths have passed a small synthetic
 integration fixture. That fixture validates orchestration and data-change

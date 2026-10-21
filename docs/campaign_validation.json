@@ -1,0 +1,25 @@
+{
+  "recorded_utc": "2026-10-21T05:39:09.921814+00:00",
+  "estimator_source_hash": "814ce42c53659df2f23ab0be9eee6267d1416d0ec3728a2a657e327c8d060713",
+  "estimator_code_unchanged": true,
+  "previous_core_tests_passed": 23,
+  "new_orchestration_tests": {
+    "passed": 6,
+    "command": "python -m pytest -q tests/test_campaign_queue.py tests/test_shadow_workflow.py tests/test_campaign_report.py",
+    "elapsed_s": 5.34
+  },
+  "primary_pairings": 15,
+  "primary_calibration_jobs": 60,
+  "shadow_selection_jobs": 64,
+  "conditional_test_jobs": 124,
+  "queue_jobs": 248,
+  "campaign_specification_identity": "75bf565404c39656bb567208b31ae813489e74be2cd79feae98a4c35cf5f9166",
+  "external_shadow_snapshot_workspace_path": "experiments/indoor_vt_shadow/snapshots/93c02ea6545c71a4e1f62b9edd9fe9ff81663eec8f8f2eff23c9e3225f750c6e",
+  "external_shadow_hashes": {
+    "evaluate.py": "be9fe7ab24519462d5e21b16a091b997f9527e37eb06de2db23ad27e3b7ad719",
+    "grouping.py": "2806e7f351355aea9624d1044c704968f023c6e3c464f291f0a858727795dd85",
+    "run.py": "c622ec2dae30c841c89bf1b7d4f89c7d894dd3b9c549a1ff486cf225c08d4728",
+    "workflow.py": "168e4567e9923a6986dc21f13d74dab4455e4df3b85bff83e6dce2a725343adb"
+  },
+  "publication_generated": false
+}
