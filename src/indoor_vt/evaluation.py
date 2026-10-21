@@ -102,6 +102,7 @@ class Evaluator:
                         "reconstruction.py",
                         "fitting.py",
                         "clustering.py",
+                        "complete_link.py",
                         "contracts.py",
                         "stage_cache.py",
                         "provenance.py",

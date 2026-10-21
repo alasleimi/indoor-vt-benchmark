@@ -56,7 +56,8 @@ def main():
         "sources": True,
         "legacy_merger_fields": False,
         "score_implementation": component_hash(
-            before, ("localization.py", "matching.py", "contracts.py", "uv.lock")
+            before,
+            ("localization.py", "matching.py", "nearest_scores.py", "contracts.py", "uv.lock"),
         ),
         "stage_implementation": component_hash(
             before,
@@ -65,6 +66,7 @@ def main():
                 "reconstruction.py",
                 "fitting.py",
                 "clustering.py",
+                "complete_link.py",
                 "contracts.py",
                 "stage_cache.py",
                 "provenance.py",

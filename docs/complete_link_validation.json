@@ -1,0 +1,78 @@
+{
+  "old_code_hash": "524c7e047ae681d27eb67fe63bb3c0ce77e4befd05678279a277ca786c15d44c",
+  "new_code_hash": "fadff5e05d80960a94410eb91970a41d4218d4d931afc179cdc1c90c2f9b9de2",
+  "exact": true,
+  "exact_coarse_predictions": 288,
+  "exact_vt_methods": 12,
+  "exact_full_hierarchy_candidates": 39742,
+  "exact_full_hierarchy_rows": 39741,
+  "tests": {
+    "passed": 58,
+    "elapsed_s": 12.09
+  },
+  "ruff": "clean",
+  "inputs": "Calibration candidate bank and controlled fixtures; no held-out data",
+  "large_case": {
+    "candidates": 39742,
+    "condensed_bytes": 6317547288,
+    "seconds": 195.42580630001612,
+    "exact_full_hierarchy": true,
+    "reference": "runs\\profiles\\linkage\\expected_hierarchy.npy",
+    "peak_private_commit_bytes": 93294592,
+    "peak_working_set_bytes": 6324224000,
+    "current_private_bytes": 80261120
+  },
+  "small_timings": [
+    {
+      "candidates": 100,
+      "storage": "memory",
+      "scipy_s": 0.002192300045862794,
+      "revised_s": 0.00017409981228411198,
+      "exact_full_hierarchy": true
+    },
+    {
+      "candidates": 100,
+      "storage": "file",
+      "scipy_s": 0.002192300045862794,
+      "revised_s": 0.0045368000864982605,
+      "exact_full_hierarchy": true
+    },
+    {
+      "candidates": 1000,
+      "storage": "memory",
+      "scipy_s": 0.01968310005031526,
+      "revised_s": 0.012104700086638331,
+      "exact_full_hierarchy": true
+    },
+    {
+      "candidates": 1000,
+      "storage": "file",
+      "scipy_s": 0.01968310005031526,
+      "revised_s": 0.016099700005725026,
+      "exact_full_hierarchy": true
+    },
+    {
+      "candidates": 3000,
+      "storage": "memory",
+      "scipy_s": 0.16569149983115494,
+      "revised_s": 0.10441499995067716,
+      "exact_full_hierarchy": true
+    },
+    {
+      "candidates": 3000,
+      "storage": "file",
+      "scipy_s": 0.16569149983115494,
+      "revised_s": 0.14143839990720153,
+      "exact_full_hierarchy": true
+    }
+  ],
+  "limitations": "Quadratic disk storage/time remain. File-backed pages can occupy RAM but are reclaimable. Kernels warmed for timings; no concurrent full-size SciPy baseline repeated.",
+  "artifacts": {
+    "baseline_pipeline.json": "f88e4a1a8bb7e03e8b73eb5c3c662e8018a3ffcf42fe15c2d7327f08e2348193",
+    "expected_hierarchy.npy": "f313d09634660f981e8b1ae1f817d333662f1a09ed6707c582af5baac9162c13",
+    "full_case.json": "fa73825ee19e6728576220c23f18878a60d3287727034954a3336f1fda4d8819",
+    "points.npy": "9595a105a1d19fbf638168a1b94c643625e452093120a08df139beddc28ec40d",
+    "revised_pipeline.json": "a649910a002fee9d4d21a799c8fabc4fce0274cdaec8b0725888f8bbbaa64d59",
+    "timings.json": "110e18f607ad51c8c70dbfa04ae226562b2a2a212d4e889e5610da5feea68a99"
+  }
+}

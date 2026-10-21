@@ -3,11 +3,12 @@
 from collections import deque
 from itertools import product
 import numpy as np
-from scipy.cluster.hierarchy import linkage, fcluster
+from scipy.cluster.hierarchy import fcluster
 from scipy.spatial import cKDTree
 
 from .provenance import digest
 from .stage_cache import cached
+from .complete_link import complete_linkage
 
 
 def greedy_complete(points, radius):
@@ -82,7 +83,9 @@ def memberships(points, radius, method="greedy_median", min_samples=5, cache=Non
                 cache,
                 "hierarchies",
                 {"bank": bank, "linkage": "complete"},
-                lambda: linkage(points, method="complete", metric="euclidean").tolist(),
+                lambda: complete_linkage(
+                    points, scratch_dir=cache.directory / "scratch" if cache else None
+                ).tolist(),
             )
             labels = fcluster(np.asarray(hierarchy), t=radius, criterion="distance")
             return [np.flatnonzero(labels == label).tolist() for label in sorted(set(labels))]

@@ -168,7 +168,9 @@ bounds 1 to 100. That parameter is inactive for other mergers.
 
 Greedy insertion uses spatial cells and checks every member of each eligible
 cluster. Mean and median reuse identical memberships. Agglomerative complete
-link uses SciPy's compiled hierarchy, cached once per raw candidate bank and
+link uses an in-place nearest-neighbor chain matching SciPy 1.15.3's full
+hierarchy exactly, with large distance arrays backed by temporary files. The
+hierarchy is cached once per raw candidate bank and
 cut at each radius; its distance storage is quadratic, and the estimated
 condensed-array bytes are recorded. DBSCAN uses on-demand cKDTree neighborhoods
 and records noise candidates separately. DBSCAN density counts candidates;

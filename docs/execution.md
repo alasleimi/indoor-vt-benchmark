@@ -4,7 +4,7 @@ This is a local-only repository. The original plan remains at
 `../../DATASET_PIPELINE_PLAN.md`; it was not moved into this repository.
 The publication namespace remains unused.
 
-## Active execution revision v4
+## Active execution revision v5
 
 The [external plan](../../DATASET_PIPELINE_PLAN.md) now runs initial
 published/disclosed presets before deeper main calibration. Greedy median and
@@ -41,6 +41,14 @@ retained; unchanged full objective artifacts remain in their original directorie
 The migration and source identities are recorded in
 `runs/development/revisions/v4/migration.json`. This is a concurrency reduction,
 not a claim that the largest individual clustering job has a proven memory bound.
+
+Revision v5 replaces the copied, private distance matrices with one mutable
+complete-link workspace, file-backed above 256 MiB. The same 39,742-candidate
+case reproduced its entire saved SciPy hierarchy exactly. The estimator's
+numerical outputs, scientific jobs and search domains are unchanged; completed
+presets and objectives are carried forward with explicit compatibility receipts.
+One worker continues from v4. See the [complete-link record](complete_link_performance.md)
+for measured memory, timings, tie handling and the remaining quadratic storage cost.
 
 ## Implemented
 
@@ -101,7 +109,7 @@ computer is shut down or asleep.
 
 ## Calibration and evaluation campaign
 
-Full scientific calibration started on 2026-10-21. Revision v4 runs one
+Full scientific calibration started on 2026-10-21. Revision v5 runs one
 persistent worker with one numerical-library thread. During the code
 transition two useful preset workers continued on an immutable old source
 snapshot. The revised workers use verified caches and preserve all original
@@ -123,7 +131,7 @@ remains external through the campaign so registry changes cannot invalidate
 existing freezes. Importing eligible implementations follows the campaign audit.
 
 The revised graph has **450 jobs**, recorded in
-`runs/development/revisions/v4/specification.json`:
+`runs/development/revisions/v5/specification.json`:
 
 1. 110 initial main presets: 8 coarse, 72 VT including merger alternatives,
    and 30 pipeline presets. The default merger of every VT method is covered
@@ -136,19 +144,19 @@ The revised graph has **450 jobs**, recorded in
 4. 60 primary test evaluations and 64 conditional shadow test evaluations.
 
 The original 248-job specification/status remains in `runs/development/campaign`.
-It and revisions v2/v3 are historical and must not run concurrently with v4. The runner locks
+It and revisions v2/v3/v4 are historical and must not run concurrently with v5. The runner locks
 its revision, checks source and shadow identities, retries an error once, and
 blocks later phases after unresolved failures. If the parent exits, workers
 stop too; restart resumes saved objectives and searches. Interrupted in-flight
 case computations may repeat, while completed artifacts remain available.
 
 Live progress and completed results are in
-`runs/development/revisions/v4/report.md` and `status.json`. The runner updates
+`runs/development/revisions/v5/report.md` and `status.json`. The runner updates
 them automatically. Completed candidate counts are distinct from completed
 pipeline jobs. Full searches can take much longer than propagation.
 
 ```powershell
-uv run python scripts/run_revision_campaign.py --revision v4 --workers 1
+uv run python scripts/run_revision_campaign.py --revision v5 --workers 1
 ```
 
 This command resumes the recorded campaign. Do not edit estimator settings or
@@ -174,9 +182,10 @@ LEA parameters. Loading/hash checks are memoized, with a bounded query cache.
 Custom injected matchers/fitting implementations bypass intermediate caches
 unless their identities are explicitly covered. Atomic writes use separate
 process temporary files. Standard complete-link clustering retains quadratic
-distance storage; it does not impose a source cap or approximate clustering.
+distance storage in one mutable workspace, file-backed when large; it does not
+impose a source cap or approximate clustering.
 
-Validation: **53 tests passed**, Ruff clean, and an old/new implementation audit
+Validation: **58 tests passed**, Ruff clean, and an old/new implementation audit
 matched **288 coarse predictions exactly** across both observation tracks and
 all four localizers. All **12 VT methods** matched exactly on a controlled
 multipath fixture (consensus trials reduced only for that verification fixture).
@@ -186,6 +195,8 @@ searches, stage dependencies and the main-before-shadow barrier.
 The v3 checks also matched 1,144,000 MCA/Chamfer scores exactly on full calibration
 cases and cover LEA prefix reuse, later-iteration failure, unbounded peak counts,
 grouping reuse and source-summary invalidation.
+Revision v5 also verifies exact full complete-link hierarchies, both workspace
+backends, threshold ties and cleanup after abrupt Windows worker termination.
 
 Original timings remain original timings. Cached score receipts record matrix
 compute time separately; new per-query coarse timings cover ranking only.
