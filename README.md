@@ -61,12 +61,13 @@ Every trial uses the complete declared calibration set with uniform averaging.
 These full campaigns can take substantially longer than dataset generation.
 
 The active comparison queue is started/resumed with
-`uv run python scripts/run_revision_campaign.py --revision v3 --workers 2`.
+`uv run python scripts/run_revision_campaign.py --revision v4 --workers 1`.
 It first covers all main presets, then interleaves main hyperparameter searches
 one new configuration at a time. All shadow work waits for main calibration
 and freezes; held-out testing waits for all selection. The runner updates
-`runs/development/revisions/v3/report.md` itself. Original trials and earlier
-queues remain preserved; do not restart an old queue alongside revision v3.
+`runs/development/revisions/v4/report.md` itself. Original trials and earlier
+queues remain preserved; do not restart an old queue alongside revision v4.
+One worker reduces peak memory pressure after the v3 runner's memory failure.
 See the execution record for exact counts, reuse and timing conventions.
 The [performance record](docs/performance.md) describes the additional exact
 cache reuse and its validation.

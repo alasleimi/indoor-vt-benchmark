@@ -77,5 +77,7 @@ source and compatibility receipt are archived under
 
 The migration receipt is `runs/development/revisions/v3/migration.json`.
 Stage recovery records its progress in that directory's `recovered_stages.json`.
-Two scientific workers continue the same main-first queue; shadow work still
-waits until all main calibration and freezes finish.
+Revision v3 initially ran two scientific workers. Revision v4 later resumed the
+same main-first queue with one worker after a memory failure; see the
+[execution record](execution.md). Shadow work still waits until all main
+calibration and freezes finish.

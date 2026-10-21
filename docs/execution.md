@@ -4,7 +4,7 @@ This is a local-only repository. The original plan remains at
 `../../DATASET_PIPELINE_PLAN.md`; it was not moved into this repository.
 The publication namespace remains unused.
 
-## Active execution revision v3
+## Active execution revision v4
 
 The [external plan](../../DATASET_PIPELINE_PLAN.md) now runs initial
 published/disclosed presets before deeper main calibration. Greedy median and
@@ -25,6 +25,22 @@ campaign are preserved. Completed v2 objective receipts reference their original
 artifacts; compatible per-case and intermediate caches are reused explicitly.
 The scientific protocol and 450-job schedule are unchanged. See the
 [performance record](performance.md) and [validation receipt](cache_optimization_validation.json).
+
+At 21:40 Europe/Berlin on 2026-10-21, the v3 runner stopped with `MemoryError`
+while checking source hashes. Both workers exited; the last status still listed
+their interrupted jobs as running. The campaign had completed 92 of 110 initial
+presets: all eight coarse presets, 54 of 72 VT presets and all 30 pipeline presets.
+A recent direct star/local agglomerative case contained 39,742 candidates and
+required 6.32 GB for its condensed distance array alone; concurrent worker memory
+is consistent with the failure, but the traceback does not identify its allocator.
+
+Revision v4 resumed at approximately 22:45 Europe/Berlin with one worker to reduce
+concurrent memory pressure. Estimator code, runner code, jobs, parameters and search
+budgets are identical to v3. All 92 completed jobs and 94 objective receipts are
+retained; unchanged full objective artifacts remain in their original directories.
+The migration and source identities are recorded in
+`runs/development/revisions/v4/migration.json`. This is a concurrency reduction,
+not a claim that the largest individual clustering job has a proven memory bound.
 
 ## Implemented
 
@@ -85,8 +101,8 @@ computer is shut down or asleep.
 
 ## Calibration and evaluation campaign
 
-Full scientific calibration started on 2026-10-21. Revision v3 runs two
-persistent workers with one numerical-library thread each. During the code
+Full scientific calibration started on 2026-10-21. Revision v4 runs one
+persistent worker with one numerical-library thread. During the code
 transition two useful preset workers continued on an immutable old source
 snapshot. The revised workers use verified caches and preserve all original
 artifacts. This is ongoing calibration, not a completed benchmark.
@@ -107,7 +123,7 @@ remains external through the campaign so registry changes cannot invalidate
 existing freezes. Importing eligible implementations follows the campaign audit.
 
 The revised graph has **450 jobs**, recorded in
-`runs/development/revisions/v3/specification.json`:
+`runs/development/revisions/v4/specification.json`:
 
 1. 110 initial main presets: 8 coarse, 72 VT including merger alternatives,
    and 30 pipeline presets. The default merger of every VT method is covered
@@ -120,19 +136,19 @@ The revised graph has **450 jobs**, recorded in
 4. 60 primary test evaluations and 64 conditional shadow test evaluations.
 
 The original 248-job specification/status remains in `runs/development/campaign`.
-It and revision v2 are historical and must not run concurrently with v3. The runner locks
+It and revisions v2/v3 are historical and must not run concurrently with v4. The runner locks
 its revision, checks source and shadow identities, retries an error once, and
 blocks later phases after unresolved failures. If the parent exits, workers
 stop too; restart resumes saved objectives and searches. Interrupted in-flight
 case computations may repeat, while completed artifacts remain available.
 
 Live progress and completed results are in
-`runs/development/revisions/v3/report.md` and `status.json`. The runner updates
+`runs/development/revisions/v4/report.md` and `status.json`. The runner updates
 them automatically. Completed candidate counts are distinct from completed
 pipeline jobs. Full searches can take much longer than propagation.
 
 ```powershell
-uv run python scripts/run_revision_campaign.py --revision v3 --workers 2
+uv run python scripts/run_revision_campaign.py --revision v4 --workers 1
 ```
 
 This command resumes the recorded campaign. Do not edit estimator settings or
