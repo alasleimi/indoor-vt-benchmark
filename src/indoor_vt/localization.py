@@ -62,6 +62,11 @@ class FingerprintLocalizer:
                 float(np.mean(parts)) if parts else (0 if self.config.method == "mca" else np.inf)
             )
         scores = np.asarray(scores)
+        return self.predict_from_scores(scores)
+
+    def predict_from_scores(self, scores):
+        """Apply the unchanged ranking/weighting rule to reusable channel scores."""
+        scores = np.asarray(scores)
         c = self.config
         if c.method == "mca":
             selected = np.argsort(-scores, kind="stable")[: c.neighbors]

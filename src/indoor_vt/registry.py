@@ -44,7 +44,7 @@ def reconstruction_default(name):
     return result
 
 
-def make_reconstructor(name, parameters=None, seed=0):
+def make_reconstructor(name, parameters=None, seed=0, *, stage_cache=None):
     if name not in VT_METHODS:
         raise ValueError(f"Unregistered primary reconstruction method: {name}")
     params = dict(reconstruction_default(name) if parameters is None else parameters)
@@ -63,7 +63,9 @@ def make_reconstructor(name, parameters=None, seed=0):
                 config.half_window, config.alpha, size_norm="l2", conflict_priority="distance"
             )
         )
-    return MPUrgeReconstructor(config, matcher=matcher, refinement=refinement)
+    return MPUrgeReconstructor(
+        config, matcher=matcher, refinement=refinement, stage_cache=stage_cache
+    )
 
 
 def make_pipeline(config, seed=0):

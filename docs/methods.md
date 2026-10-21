@@ -62,11 +62,125 @@ Each usable group has at least four observations and noncoplanar survey
 geometry. Linearized multilateration initializes unconstrained nonlinear least
 squares on signed x,y,z coordinates. There is no room bounding box or imposed
 positive VT height. Invalid/degenerate groups are recorded and rejected.
-Candidates merge by deterministic complete-link insertion within the calibrated
-radius. The representative is their coordinate-wise median, with deduplicated
-support. The filter retains support at least beta times mean candidate support.
+The default merges candidates by deterministic complete-link insertion within
+the calibrated radius, with coordinate-wise median representatives and deduplicated
+support. The merger alternatives below are calibrated for MPUrge variants.
+The filter retains support at least beta times mean candidate support.
 These stages are independently injectable; raw memberships, edges, costs,
 residuals and rejection reasons remain in the fit artifact.
+
+## MPUrge parameter audit (2026-10-21)
+
+This inventory describes the current implementation, not a claim that every
+choice below was specified by the paper or experimentally validated. The
+original configuration/search inventory covered the main numerical knobs but
+did not fully expose solver settings and fixed modeling policies. The running
+campaign has not been changed by this documentation audit.
+
+### Parameters included in calibration
+
+| Component | Parameter | Default | Initial candidate values |
+|---|---|---|---|
+| MPUrge matching | Half-window `p`; full width is `2p+1` | 2 | 0, 1, 2, 3, 4 |
+| MPUrge matching | Distance/pattern mixture `alpha` | 0.5 | 0, 0.25, 0.5, 0.75, 1; default is also evaluated |
+| Local VT reconstruction | Number of survey points per neighborhood, including its center | 10 | 4, 5, 10, 20, 50, 100 |
+| VT merging | Radius in metres | 0.5 | 0.1, 0.2, 0.5, 1, 2, 5 |
+| VT filtering | `beta` multiplier of mean candidate support | 1 | 0, 0.5, 1, 1.5, 2, 4 |
+| Triangle variant only | Range feasibility tolerance in metres | 0.5 | 0, 0.1, 0.2, 0.5, 1, 2, 5, 10 |
+| MPUrge-MAP | Half-window, mixture and localization neighbor count | 2, 0.7, 3 | Same window/mixture lists; k = 1, 3, 5, 10, 20; default also evaluated |
+| DiffAssign variant only | Range scale, temperature, reverse weight, unmatched cost | 0.5 m, 0.1, 0.5, 2 | Explicit lists in `search_spaces.py` |
+
+The VT neighborhood count and localization k are different parameters.
+Full-room reconstruction ignores the neighborhood count. Bounds, expansion
+flags and refinement rules are in `search_spaces.py` and `calibration.py`;
+the table lists initial values, not every possible adaptive trial.
+
+### Fixed choices that also determine the result
+
+| Stage | Current choice | Where it is recorded |
+|---|---|---|
+| Size unification | Ordered L1-optimal subset; DP ties choose inclusion of the later candidate | Matcher config plus code; PBA uses L2 instead |
+| Pattern | Every unordered pair in the local window; unnormalized for MPUrge, divided by `p(2p+1)` for MAP when p > 0 | Matcher config plus code |
+| Window ends | Near-repeated endpoint padding; increment `16 * float64 epsilon * max(span, max(abs(range)), 1)` | Code only |
+| Reciprocal matching | First argmin on ties; candidates sorted by dissimilarity then original indices | Code only |
+| Cross-check / Urge | Order-based crossing test; remove all reciprocal candidates, including rejected ones; recompute patterns on survivors | Matcher config and method definition; Urge policy is code only |
+| Scope | 3D Euclidean nearest survey positions; all pairs within each neighborhood; repeated pair work deduplicated; full scope uses all survey positions | Reconstruction config and method definition |
+| Grouping | Components or stars are distinct named variants, not a hidden per-room choice | Reconstruction config |
+| Conflicting component owners | Retain one peak per survey position by greatest degree, then lowest mean incident cost, then stable node ID; do not split again after removal | Code and method definition |
+| Minimum usable group | At least four distinct survey positions, centered position matrix of rank 3 | Code and method definition |
+| 3D fitting | Centered linear least-squares initialization, equally weighted range residuals, unconstrained signed coordinates, linear loss, analytic Jacobian, LM solver | Code and method definition; not fully expanded in the configuration receipt |
+| Fit limits / failure | `max_nfev=100`; reject nonfinite coordinates or solver nonconvergence; no residual-quality cutoff | Code only for MPUrge reconstruction |
+| Fit numerical defaults | Pinned SciPy 1.15.3: `ftol=xtol=gtol=1e-8`, `x_scale=1`; NumPy default rank and least-squares cutoffs | Dependency lock and code, not expanded in method config |
+| Candidate merging | Greedy complete-link insertion, lexicographic coordinate order, first eligible cluster, coordinate-wise median representative | Code and method definition |
+| Support | Number of unique survey-position owners after union; retain support >= beta times the arithmetic mean over merged candidates | Code and method definition |
+| MAP coverage | Mean match cost divided by matches / max(original fingerprint lengths) | Code and method definition; selected interpretation of prose/equation conflict |
+| Multi-AP localization | Arithmetic mean of per-AP scores before neighbor selection; a nonfinite channel score makes the combined score nonfinite | Code; a multi-AP adaptation |
+| Localization weighting | Inverse score with fixed exponent 1; stable top-k; scores <= float64 epsilon share the weight, other selected scores get zero weight | Config plus code |
+| Localization failure | Survey centroid when no reference has a finite score | Code |
+| DiffAssign numerics | Fixed predicted K; L-BFGS-B, maxiter 100, ftol 1e-9; pinned defaults gtol 1e-5, maxcor 10, maxls 20, maxfun 15000; absolute-value smoothing adds 1e-12 m squared | Config, code and dependency lock |
+| DiffAssign acceptance | Keep initial bank unless solver succeeds with finite objective no greater than its initial value | Code and method definition |
+
+`epsilon_m` in the shared initial-localizer config is used by MCA, not by
+MPUrge-MAP. `f_scale=1` in the shared fitter has no effect for MPUrge's linear
+loss. These are inactive fields, not omitted MPUrge tuning dimensions. There
+is no hidden peak cap, true-VT-count input, room-bound fitting constraint or
+extra match-dissimilarity threshold in these implementations.
+
+The user reviewed these fixed policies and requested that they remain fixed,
+not become additional calibration dimensions. The inventory documents their
+behavior, including the fact that coordinate-wise medians and lexicographic
+greedy insertion are not guaranteed invariant to rotation. Source hashes
+preserve their implementation. The specifically requested merger/representative
+comparison below is the exception to keeping these choices fixed.
+
+### Findings and corrections in revision v2
+
+- Published candidates include both the SAPP MAP setting p=2, alpha=0.7, k=3
+  and the MAP paper setting p=6, alpha=0.7, k=3. Initial preset coverage uses
+  the latter. The paper's original-MPUrge initial-localization p=5, alpha=0.5,
+  k=3 and MCA epsilon=1.6 m, k=1 are also explicit candidates.
+- Future searches exclude p=0 together with alpha=0, including nested joint
+  configurations, boundary expansion and refinement. Historical rows are
+  preserved and marked ineligible; they are neither deleted nor rerun.
+- Fixed policies and resolved numerical defaults are not all serialized into
+  a single method manifest, although source and dependency hashes pin them.
+- Solver-limit sufficiency and rotation sensitivity have not been established
+  by the matcher agreement tests. Those tests compare against the prior SAPP
+  adapter, not author code.
+- Per-AP score matrices now survive changes in k and A/B/A+B. Graphs, raw
+  source fits, cluster memberships/hierarchies and final LEA predictions also
+  have separate caches keyed by their actual dependencies.
+
+### Implemented merger and execution revision
+
+The external [plan](../../DATASET_PIPELINE_PLAN.md) now specifies greedy
+complete-link with median **and mean** representatives, standard agglomerative
+complete-link with a median representative, and DBSCAN with a median
+representative. Their distance/density parameters are calibrated; greedy
+mean/median changes only the representative, not cluster membership. Other
+fixed modeling and numerical choices remain fixed. No true VT count is used.
+
+These alternatives are components of the existing MPUrge entries, not extra
+high-level methods. The merger field has four choices: `greedy_median`,
+`greedy_mean`, `agglomerative`, `dbscan`. All use the existing calibrated radius;
+DBSCAN additionally searches min_samples in 2, 3, 5, 10, 20, with expansion
+bounds 1 to 100. That parameter is inactive for other mergers.
+
+Greedy insertion uses spatial cells and checks every member of each eligible
+cluster. Mean and median reuse identical memberships. Agglomerative complete
+link uses SciPy's compiled hierarchy, cached once per raw candidate bank and
+cut at each radius; its distance storage is quadratic, and the estimated
+condensed-array bytes are recorded. DBSCAN uses on-demand cKDTree neighborhoods
+and records noise candidates separately. DBSCAN density counts candidates;
+the unchanged subsequent support rule counts distinct survey positions.
+
+Revision v2 obtains initial main-method presets before deeper calibration,
+advances each eligible search one new configuration per turn, and waits for
+all main calibration/freeze jobs before starting any shadow work. Existing
+trial artifacts retain their original provenance. Dataset coverage, search
+budgets and the held-out test barrier remain unchanged. Cached timings are
+labelled: historical runtime remains historical; ranking-only timings must
+be combined with channel-score work before making runtime comparisons.
 
 ## MPUrge-initialized DiffAssign
 

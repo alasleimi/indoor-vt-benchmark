@@ -28,7 +28,23 @@ def initial_space(method):
         "mca": "Zayets-Steinbach MCA: tolerance 1 m, best reference",
         "chamfer": "SAPP Chamfer weighted-kNN baseline",
     }[method]
-    return space, [{"parameters": initial_default(method), "citation": citation}]
+    published = [{"parameters": initial_default(method), "citation": citation}]
+    if method in ("mpurge_map", "mpurge", "mca"):
+        candidate = initial_default(method)
+        candidate.update(
+            {"half_window": 6, "alpha": 0.7, "neighbors": 3}
+            if method == "mpurge_map"
+            else {"half_window": 5, "alpha": 0.5, "neighbors": 3}
+            if method == "mpurge"
+            else {"epsilon_m": 1.6, "neighbors": 1}
+        )
+        published.append(
+            {
+                "parameters": candidate,
+                "citation": "MPUrge-MAP paper, Section IV-A evaluated-method settings",
+            }
+        )
+    return space, published
 
 
 def vt_space(method):
@@ -83,6 +99,15 @@ def vt_space(method):
         "merge_radius_m": numeric([0.1, 0.2, 0.5, 1.0, 2.0, 5.0], bounds=(0.001, 100.0)),
         "beta": numeric([0.0, 0.5, 1.0, 1.5, 2.0, 4.0], bounds=(0.0, 16.0)),
     }
+    if method.startswith("mpurge"):
+        space["merger"] = {
+            "values": ["greedy_median", "greedy_mean", "agglomerative", "dbscan"],
+            "categorical": True,
+        }
+        space["dbscan_min_samples"] = {
+            **numeric([2, 3, 5, 10, 20], bounds=(1, 100), integer=True),
+            "when": {"merger": "dbscan"},
+        }
     if method.endswith("local"):
         space["neighbors"] = numeric([4, 5, 10, 20, 50, 100], bounds=(4, 500), integer=True)
     if "triangle" in method:

@@ -4,6 +4,21 @@ This is a local-only repository. The original plan remains at
 `../../DATASET_PIPELINE_PLAN.md`; it was not moved into this repository.
 The publication namespace remains unused.
 
+## Active execution revision v2
+
+The [external plan](../../DATASET_PIPELINE_PLAN.md) now runs initial
+published/disclosed presets before deeper main calibration. Greedy median and
+mean, agglomerative complete-link and DBSCAN are interchangeable MPUrge mergers.
+All shadow work is delayed until every main hyperparameter search and freeze
+finishes. Future candidates exclude p=0 together with alpha=0; original trials
+remain intact. Other audited fixed policies remain fixed. No dataset
+regeneration, observation reduction or search-budget reduction is involved.
+
+The transition preserves the original source snapshot and 27 completed
+MPUrge-MAP trials (25 receiver, 2 direct), plus six completed interim presets.
+Partial per-case caches remain reusable. Compatibility receipts link old and
+new code, data and artifact hashes; old files are not relabelled in place.
+
 ## Implemented
 
 - Frozen scene sampler, semantic seeds, native NIST runner and full rich-channel
@@ -63,16 +78,18 @@ computer is shut down or asleep.
 
 ## Calibration and evaluation campaign
 
-Full scientific calibration started on 2026-10-21. The persistent queue runs
-two jobs concurrently, with one numerical-library thread per newly launched
-worker. It attached to the first receiver job already in progress. No test
-evaluation runs until all primary calibration and shadow selections finish.
+Full scientific calibration started on 2026-10-21. Revision v2 runs two
+persistent workers with one numerical-library thread each. During the code
+transition two useful preset workers continued on an immutable old source
+snapshot. The revised workers use verified caches and preserve all original
+artifacts. This is ongoing calibration, not a completed benchmark.
 
 The comparison matrix swaps each of the twelve VT entries into MPUrge-MAP plus
 SMART-LEA, and swaps the other three initial localizers into MPUrge-local plus
 SMART-LEA. This gives fifteen distinct pairings. Each runs in two tracks and two
-regimes: **60 primary calibrations and 60 frozen test evaluations**. Shared
-component-mode upstream searches are reused across pairings.
+regimes: **60 primary pipeline freezes and 60 frozen test evaluations**. Shared
+component-mode upstream searches are reused across pairings. There are 92
+distinct main searches: 8 coarse, 24 VT, 30 component LEA and 30 end-to-end.
 
 The eight shadow methods run in both spatial scopes, tracks and regimes:
 **64 calibration comparisons** against the canonical calibrated MPUrge result.
@@ -82,24 +99,36 @@ nonqualifier records a skip without loading test observations. Qualifying code
 remains external through the campaign so registry changes cannot invalidate
 existing freezes. Importing eligible implementations follows the campaign audit.
 
-All **248 queue jobs** are recorded in
-`runs/development/campaign/specification.json`. The queue records its own source
-hash and external shadow hashes separately from the unchanged estimator hash.
-It locks shared searches, retries a failed process once, and blocks later phases
-if a failure remains unresolved. It can reattach to surviving child processes
-using PID plus creation identity after a runner interruption.
+The revised graph has **450 jobs**, recorded in
+`runs/development/revisions/v2/specification.json`:
+
+1. 110 initial main presets: 8 coarse, 72 VT including merger alternatives,
+   and 30 pipeline presets. The default merger of every VT method is covered
+   before its extra merger alternatives receive priority.
+2. 92 main searches and 60 pipeline freezes. Each eligible search receives at
+   most one new configuration per scheduling turn. Component LEA waits for its
+   upstream coarse and VT freezes. Search budgets remain 32 broad draws, up to
+   two expansions of 8 draws plus boundary candidates, and 16 refinement draws.
+3. 64 shadow selections, including their own presets; none starts earlier.
+4. 60 primary test evaluations and 64 conditional shadow test evaluations.
+
+The original 248-job specification/status remains in `runs/development/campaign`.
+It is historical and must not run concurrently with v2. The new runner locks
+its revision, checks source and shadow identities, retries an error once, and
+blocks later phases after unresolved failures. If the parent exits, workers
+stop too; restart resumes saved objectives and searches. Interrupted in-flight
+case computations may repeat, while completed artifacts remain available.
 
 Live progress and completed results are in
-`runs/development/campaign/report.md` and `report.json`. The detailed status and
-per-job logs are alongside them. Completed candidate counts are distinct from
-completed pipeline jobs. Full searches can take much longer than propagation.
+`runs/development/revisions/v2/report.md` and `status.json`. The runner updates
+them automatically. Completed candidate counts are distinct from completed
+pipeline jobs. Full searches can take much longer than propagation.
 
 ```powershell
-uv run python scripts/run_campaign.py --workers 2
-uv run python scripts/report_campaign.py --watch
+uv run python scripts/run_revision_campaign.py --revision v2 --workers 2
 ```
 
-These commands resume the recorded campaign. Do not edit estimator settings or
+This command resumes the recorded campaign. Do not edit estimator settings or
 shadow implementations during it: the queue checks those hashes and stops
 launching new work if they change. No pilot score is a publication result, and
 the 2019 adapter retains its assumption label in every comparison.
@@ -107,3 +136,32 @@ the 2019 adapter retains its assumption label in every comparison.
 Both complete calibration/freeze/test code paths have passed a small synthetic
 integration fixture. That fixture validates orchestration and data-change
 rejection; it is not a scientific calibration campaign.
+
+## Cache changes and validation
+
+Per-AP query/reference score matrices are shared across A, B, A+B and k values
+for all four initial localizers. Matrix computation retains the original
+floating-point scoring and averaging order. Reconstruction caches matched
+graphs separately from grouping and raw fitted candidates; merger/radius/beta
+and applicable DiffAssign changes reuse their upstream work. Greedy mean and
+median share memberships; agglomerative cuts share a hierarchy. LEA caches
+predictions by observed inputs, initial predictions, source coordinates and
+LEA parameters. Loading/hash checks are memoized, with a bounded query cache.
+
+Custom injected matchers/fitting implementations bypass intermediate caches
+unless their identities are explicitly covered. Atomic writes use separate
+process temporary files. Standard complete-link clustering retains quadratic
+distance storage; it does not impose a source cap or approximate clustering.
+
+Validation: **43 tests passed**, Ruff clean, and an old/new implementation audit
+matched **288 coarse predictions exactly** across both observation tracks and
+all four localizers. All **12 VT methods** matched exactly on a controlled
+multipath fixture (consensus trials reduced only for that verification fixture).
+Tests also cover cache reuse across A/B/A+B and k, historical cache imports,
+cluster memberships, refinement reuse, conditional DBSCAN parameters, resumed
+searches, stage dependencies and the main-before-shadow barrier.
+
+Original timings remain original timings. Cached score receipts record matrix
+compute time separately; new per-query coarse timings cover ranking only.
+Warm-cache scheduling time is not a cold end-to-end runtime benchmark. No full
+campaign speedup factor is claimed from the small equivalence/performance checks.

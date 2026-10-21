@@ -1,0 +1,32 @@
+{
+  "revision": "v2",
+  "source_hash": "082d1fcad6ceae22f808e49605c320d4cf421b572efc75286e8631bb49ce2bb5",
+  "pytest": {
+    "command": ".venv/Scripts/python.exe -m pytest -q",
+    "passed": 43,
+    "elapsed_s": 17.45
+  },
+  "ruff": "check clean; format applied",
+  "equivalence": {
+    "legacy": "08362eee88db759bf342681a43c98eff72e107d4758efc974c597720d0838326",
+    "revised": "eb74ae7e8eb60d272a37445d984980b8cc914f1dfa21d46e81936c7c0f0b29bc",
+    "exact_coarse_predictions": 288,
+    "exact_source_methods": 12,
+    "coverage": "Calibration observations for coarse checks; synthetic multipath sources; no held-out evaluation"
+  },
+  "preserved_trials": {
+    "receiver/coarse_mpurge_map": 25,
+    "direct/coarse_mpurge_map": 2
+  },
+  "imported_presets": 6,
+  "job_counts": {
+    "preset": 110,
+    "search": 92,
+    "freeze": 60,
+    "evaluate": 60,
+    "shadow": 64,
+    "shadow_evaluate": 64
+  },
+  "phase_rule": "Primary presets; all main calibration/freeze; shadow selection; held-out evaluation.",
+  "publication_namespace_used": false
+}

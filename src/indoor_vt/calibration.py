@@ -7,6 +7,26 @@ import numpy as np
 from .provenance import canonical, digest, read_json, write_json
 
 
+class SearchPending(Exception):
+    """A resumable search reached its allocation of new evaluations."""
+
+
+def valid_candidate(candidate):
+    """Exclude zero distance AND zero pattern information, including joint searches."""
+    if not isinstance(candidate, dict):
+        return True
+    if candidate.get("half_window") == 0 and candidate.get("alpha") == 0:
+        return False
+    return all(valid_candidate(value) for value in candidate.values())
+
+
+def active_parameter(candidate, spec, parameter=""):
+    prefix = parameter.rsplit(".", 1)[0] + "." if "." in parameter else ""
+    return all(
+        get_nested(candidate, prefix + key) == value for key, value in spec.get("when", {}).items()
+    )
+
+
 def uniform_mean(scores):
     values = np.asarray(scores, dtype=float)
     if not len(values) or not np.isfinite(values).all():
@@ -37,6 +57,11 @@ def random_candidates(default, space, rng, budget):
         for key, spec in space.items():
             values = spec["values"]
             set_nested(candidate, key, values[int(rng.integers(len(values)))])
+        for key, spec in space.items():
+            if not active_parameter(candidate, spec, key):
+                set_nested(candidate, key, get_nested(default, key))
+        if not valid_candidate(candidate):
+            continue
         identity = digest(candidate)
         if identity not in seen:
             seen.add(identity)
@@ -46,7 +71,11 @@ def random_candidates(default, space, rng, budget):
 def expanded_space(space, best):
     expanded, changes = deepcopy(space), []
     for key, spec in expanded.items():
-        if spec.get("categorical") or not spec.get("expand", False):
+        if (
+            spec.get("categorical")
+            or not spec.get("expand", False)
+            or not active_parameter(best, spec, key)
+        ):
             continue
         values = sorted(spec["values"])
         selected = get_nested(best, key)
@@ -101,7 +130,9 @@ class Search:
             "code_hash": code_hash,
         }
 
-    def run(self, objective, default, space, published, output):
+    def run(
+        self, objective, default, space, published, output, *, max_evaluations=None, history=None
+    ):
         output = Path(output)
         specification = {
             **self.metadata,
@@ -109,6 +140,8 @@ class Search:
             "space": space,
             "published": published,
         }
+        if history:
+            specification["imported_history_hash"] = digest(history)
         identity = digest(specification)
         trials, expansions, cached = [], [], {}
         if output.exists():
@@ -124,15 +157,28 @@ class Search:
             cached = {digest(t["parameters"]): t for t in old["trials"]}
         by_hash = {}
         rng = np.random.Generator(np.random.PCG64(self.metadata["seed"]))
+        new_evaluations = 0
+        # Original history remains immutable; the new receipt links its provenance.
+        for saved in history or []:
+            trial = deepcopy(saved)
+            trial["eligible"] = valid_candidate(trial["parameters"])
+            trials.append(trial)
+            by_hash[digest(trial["parameters"])] = trial
 
         def evaluate(candidate, phase, citation=None):
+            nonlocal new_evaluations
             key = digest(candidate)
             if key in by_hash:
+                return
+            if not valid_candidate(candidate):
                 return
             if key in cached:
                 score, audit = cached[key]["score"], cached[key]["audit"]
             else:
+                if max_evaluations is not None and new_evaluations >= max_evaluations:
+                    raise SearchPending(str(output))
                 score, audit = objective(candidate)
+                new_evaluations += 1
             if not np.isfinite(score):
                 raise RuntimeError("Nonfinite objective must be diagnosed, not dropped")
             trial = {
@@ -156,11 +202,16 @@ class Search:
             )
 
         def best():
-            return min(trials, key=lambda t: (t["score"], canonical(t["parameters"])))
+            return min(
+                (t for t in trials if valid_candidate(t["parameters"])),
+                key=lambda t: (t["score"], canonical(t["parameters"])),
+            )
 
         evaluate(default, "default")
         for candidate in published:
-            evaluate(candidate["parameters"], "published", candidate["citation"])
+            evaluate(
+                candidate["parameters"], candidate.get("phase", "published"), candidate["citation"]
+            )
         for candidate in random_candidates(default, space, rng, self.metadata["budget"]["broad"]):
             evaluate(candidate, "broad")
         current = deepcopy(space)

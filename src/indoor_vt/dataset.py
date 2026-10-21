@@ -20,7 +20,7 @@ def unpack(values, offsets):
 def atomic_npz(path, arrays):
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(".tmp")
+    tmp = path.with_suffix(f".{os.getpid()}.tmp")
     with tmp.open("wb") as f:
         np.savez_compressed(f, **arrays)
     os.replace(tmp, path)

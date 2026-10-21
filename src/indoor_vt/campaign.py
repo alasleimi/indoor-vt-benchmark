@@ -173,14 +173,11 @@ def evaluate_frozen(root, frozen_path):
         "vt": vt_audit,
         "provenance": evaluator.provenance,
     }
+    run_base = root / "runs" / frozen["namespace"]
+    if frozen.get("revision"):
+        run_base = run_base / "revisions" / frozen["revision"]
     destination = (
-        root
-        / "runs"
-        / frozen["namespace"]
-        / "test"
-        / frozen["track"]
-        / frozen["regime"]
-        / (frozen["name"] + ".json.gz")
+        run_base / "test" / frozen["track"] / frozen["regime"] / (frozen["name"] + ".json.gz")
     )
     gzip_json(destination, result)
     write_json(

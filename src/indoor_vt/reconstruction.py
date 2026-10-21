@@ -2,13 +2,15 @@
 
 from dataclasses import dataclass, asdict
 from itertools import combinations
-from itertools import product
 import numpy as np
 from scipy.spatial.distance import cdist
 
 from .contracts import SourceMap
 from .fitting import fit_source
 from .matching import MatcherConfig, PatternMatcher
+from .clustering import merge
+from .provenance import digest
+from .stage_cache import cached
 
 
 @dataclass(frozen=True)
@@ -23,6 +25,8 @@ class ReconstructionConfig:
     merge_radius_m: float = 0.5
     beta: float = 1.0
     size_norm: str = "l1"
+    merger: str = "greedy_median"
+    dbscan_min_samples: int = 5
 
 
 def neighborhoods(positions, scope, count):
@@ -87,38 +91,7 @@ def graph_groups(edges, mode):
 
 def merge_candidates(records, radius):
     """Deterministic complete-link insertion, median position, union of evidence."""
-    if radius <= 0:
-        raise ValueError("Positive merging radius required")
-    points = np.asarray([r["xyz"] for r in records]).reshape(-1, 3)
-    groups, cells = [], {}
-    for index in sorted(range(len(records)), key=lambda i: (*records[i]["xyz"], i)):
-        point = points[index]
-        cell = tuple(np.floor(point / radius).astype(int))
-        nearby = sorted(
-            gid
-            for offset in product((-1, 0, 1), repeat=3)
-            for gid in cells.get(tuple(a + b for a, b in zip(cell, offset)), ())
-        )
-        for gid in nearby:
-            group = groups[gid]
-            if np.all(np.linalg.norm(points[group] - point, axis=1) <= radius):
-                group.append(index)
-                break
-        else:
-            cells.setdefault(cell, []).append(len(groups))
-            groups.append([index])
-    result = []
-    for ids in groups:
-        members = sorted({tuple(n) for i in ids for n in records[i]["members"]})
-        result.append(
-            {
-                "xyz": np.median([records[i]["xyz"] for i in ids], axis=0).tolist(),
-                "members": members,
-                "support": len({i for i, _ in members}),
-                "candidate_ids": ids,
-            }
-        )
-    return result
+    return merge(records, radius)
 
 
 def support_filter(candidates, beta):
@@ -144,6 +117,7 @@ class MPUrgeReconstructor:
         candidate_filter=support_filter,
         refinement=None,
         group_fitter=None,
+        stage_cache=None,
     ):
         self.config = config
         self.matcher = matcher or PatternMatcher(
@@ -153,6 +127,7 @@ class MPUrgeReconstructor:
         self.group_builder, self.fitter = group_builder, fitter
         self.merger, self.candidate_filter, self.refinement = merger, candidate_filter, refinement
         self.group_fitter = group_fitter
+        self.stage_cache = stage_cache
 
     def fit(self, survey):
         c = self.config
@@ -169,9 +144,29 @@ class MPUrgeReconstructor:
         )
         for ap in aps:
             rows = [o.channels.get(ap, np.empty(0)) for o in survey.observations]
-            edges, pair_count = self.graph_builder(
-                survey.xyz, rows, scopes, self.matcher, c.triangle, c.triangle_tolerance_m
+            bank = digest({"xyz": survey.xyz, "ranges": rows})
+            graph_identity = {
+                "bank": bank,
+                "scopes": scopes,
+                "matcher": asdict(self.matcher.config),
+                "triangle": c.triangle,
+                "tolerance": c.triangle_tolerance_m if c.triangle else 0,
+            }
+            # Custom injected algorithms remain uncached unless their owner defines identity.
+            cache = (
+                self.stage_cache
+                if self.graph_builder is build_graph and type(self.matcher) is PatternMatcher
+                else None
             )
+            edges, pair_count = cached(
+                cache,
+                "graphs",
+                graph_identity,
+                lambda: self.graph_builder(
+                    survey.xyz, rows, scopes, self.matcher, c.triangle, c.triangle_tolerance_m
+                ),
+            )
+            edges = [(tuple(a), tuple(b), cost, distance) for a, b, cost, distance in edges]
             # Index once; local scopes reuse the identical pair matches.
             pair_edges = {}
             for edge in edges:
@@ -180,20 +175,46 @@ class MPUrgeReconstructor:
             for ids in scopes:
                 local = [edge for pair in combinations(ids, 2) for edge in pair_edges.get(pair, ())]
                 groups.update(self.group_builder(local, c.grouping))
-            records, rejected = [], []
-            for members in sorted(groups):
-                ids = [i for i, j in members]
-                ranges = [rows[i][j] for i, j in members]
-                if self.group_fitter is None:
-                    point, fit = self.fitter(survey.xyz[ids], ranges)
-                else:
-                    point, fit = self.group_fitter(survey.xyz[ids], ranges, members, self.fitter)
-                record = {"members": members, "fit": fit}
-                if point is None:
-                    rejected.append(record)
-                else:
-                    records.append({**record, "xyz": point.tolist()})
-            merged = self.merger(records, c.merge_radius_m)
+
+            def fit_groups():
+                records, rejected = [], []
+                for members in sorted(groups):
+                    ids = [i for i, j in members]
+                    ranges = [rows[i][j] for i, j in members]
+                    if self.group_fitter is None:
+                        point, fit = self.fitter(survey.xyz[ids], ranges)
+                    else:
+                        point, fit = self.group_fitter(
+                            survey.xyz[ids], ranges, members, self.fitter
+                        )
+                    record = {"members": members, "fit": fit}
+                    if point is None:
+                        rejected.append(record)
+                    else:
+                        records.append({**record, "xyz": point.tolist()})
+                return records, rejected
+
+            fit_cache = (
+                self.stage_cache
+                if self.fitter is fit_source and self.group_fitter is None
+                else None
+            )
+            records, rejected = cached(
+                fit_cache,
+                "raw_fits",
+                {
+                    "bank": bank,
+                    "groups": sorted(groups),
+                    "solver": "unweighted_signed_3d_lm",
+                },
+                fit_groups,
+            )
+            if self.merger is merge_candidates:
+                merged = merge(
+                    records, c.merge_radius_m, c.merger, c.dbscan_min_samples, self.stage_cache
+                )
+            else:
+                merged = self.merger(records, c.merge_radius_m)
             selected, threshold = self.candidate_filter(merged, c.beta)
             estimates[ap] = np.asarray([s["xyz"] for s in selected]).reshape(-1, 3)
             audit["channels"][ap] = {
@@ -202,8 +223,17 @@ class MPUrgeReconstructor:
                 "edges": edges,
                 "groups": sorted(groups),
                 "raw_candidates": records,
+                "candidate_count": len(records),
+                "complete_link_condensed_distance_bytes": 8
+                * len(records)
+                * (len(records) - 1)
+                // 2,
                 "rejected": rejected,
                 "merged": merged,
+                "clustering_rejected_ids": sorted(
+                    set(range(len(records)))
+                    - {i for cluster in merged for i in cluster["candidate_ids"]}
+                ),
                 "selected": selected,
                 "support_threshold": threshold,
             }
