@@ -10,6 +10,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument("--snapshot", type=Path)
+    parser.add_argument("--code-root", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     if args.snapshot:
@@ -21,7 +22,7 @@ def main():
     from indoor_vt.provenance import read_json, write_json, code_provenance
     from indoor_vt.registry import VT_METHODS, make_reconstructor, reconstruction_default
 
-    code_root = args.snapshot / "source" if args.snapshot else args.root
+    code_root = args.snapshot / "source" if args.snapshot else (args.code_root or args.root)
     result = {"source_hash": code_provenance(code_root)["source_hash"], "coarse": [], "sources": {}}
     design = read_json(args.root / "data/development/design.json")
     room = next(r for r in design["rooms"] if r["split"] == "calibration")

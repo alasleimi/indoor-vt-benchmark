@@ -25,6 +25,7 @@ from .provenance import (
 from .registry import make_reconstructor
 from .dataset import atomic_npz
 from .stage_cache import StageCache
+from .nearest_scores import nearest_geometry, geometry_scores
 
 
 def gzip_json(path, value):
@@ -87,6 +88,7 @@ class Evaluator:
         ]
         self.surveys, self.queries = {}, OrderedDict()
         self.input_hashes = {}
+        self.source_summaries = OrderedDict()
         self.stage_cache = StageCache(
             self.cache / "stages",
             digest(
@@ -113,7 +115,20 @@ class Evaluator:
                 key: value
                 for key, value in self.provenance["files"].items()
                 if key.rsplit("/", 1)[-1]
-                in ("localization.py", "matching.py", "contracts.py", "uv.lock")
+                in (
+                    "localization.py",
+                    "matching.py",
+                    "nearest_scores.py",
+                    "contracts.py",
+                    "uv.lock",
+                )
+            }
+        )
+        self.geometry_implementation = digest(
+            {
+                key: value
+                for key, value in self.provenance["files"].items()
+                if key.rsplit("/", 1)[-1] in ("nearest_scores.py", "contracts.py", "uv.lock")
             }
         )
         compatibility = self.root / "runs" / namespace / "cache_compatibility.json"
@@ -122,6 +137,11 @@ class Evaluator:
             receipt = read_json(compatibility)
             if receipt["target_code_hash"] == self.provenance["source_hash"]:
                 self.compatible = receipt["accepted"]
+                self.stage_cache.previous_implementations = tuple(
+                    record["stage_implementation"]
+                    for record in self.compatible
+                    if record.get("stage_implementation")
+                )
         self.partial_pilot = bool(pilot_room or pilot_subset or pilot_level)
         self.cases = [
             (room, subset, level)
@@ -246,20 +266,20 @@ class Evaluator:
         key = digest(identity)
         path = self.cache / "sources" / f"{key}.json.gz"
         if path.exists():
-            with gzip.open(path, "rt") as f:
-                payload = json.load(f)
+            payload = self.source_summary(path)
             return SourceMap(
                 payload["sources"], {"cache_key": key, "elapsed_s": payload["elapsed_s"]}
             )
         for compatible in self.compatible:
-            if (
-                not compatible.get("sources")
-                or parameters.get("merger", "greedy_median") != "greedy_median"
-            ):
+            if not compatible.get("sources"):
                 continue
-            legacy_parameters = {
-                k: v for k, v in parameters.items() if k not in ("merger", "dbscan_min_samples")
-            }
+            legacy_parameters = parameters
+            if compatible.get("legacy_merger_fields", True):
+                if parameters.get("merger", "greedy_median") != "greedy_median":
+                    continue
+                legacy_parameters = {
+                    k: v for k, v in parameters.items() if k not in ("merger", "dbscan_min_samples")
+                }
             previous_identity = {
                 **identity,
                 "code": compatible["code_hash"],
@@ -299,6 +319,45 @@ class Evaluator:
         )
         return SourceMap(result.by_ap, {"cache_key": key, "elapsed_s": elapsed})
 
+    def source_summary(self, path):
+        """Read coordinates without repeatedly inflating the full graph/fit audit."""
+
+        def stamp():
+            info = path.stat()
+            return [info.st_size, info.st_mtime_ns]
+
+        current = stamp()
+        key = str(path)
+        previous = self.source_summaries.get(key)
+        if previous and previous["artifact_stat"] == current:
+            self.source_summaries.move_to_end(key)
+            return previous
+        summary_path = path.with_suffix(".summary.json")
+        summary = read_json(summary_path) if summary_path.exists() else None
+        if summary is None or summary["artifact_stat"] != current:
+            # Atomic cache replacement can happen concurrently. Only publish a
+            # summary when the payload read belongs to one stable file version.
+            while True:
+                current = stamp()
+                with gzip.open(path, "rt") as handle:
+                    payload = json.load(handle)
+                if stamp() == current:
+                    break
+            summary = {
+                "sources": payload["sources"],
+                "elapsed_s": payload["elapsed_s"],
+                "identity": payload["identity"],
+                "artifact_stat": current,
+            }
+            write_json(summary_path, summary)
+        if digest(summary["identity"]) != path.name.removesuffix(".json.gz"):
+            raise RuntimeError("Source-coordinate summary identity mismatch")
+        self.source_summaries[key] = summary
+        self.source_summaries.move_to_end(key)
+        while len(self.source_summaries) > 32:
+            self.source_summaries.popitem(last=False)
+        return summary
+
     def channel_scores(self, parameters, room, ap, level):
         cases = self.query_cases(room, (ap,), level)
         survey = self.survey(room, (ap,), level)
@@ -323,13 +382,36 @@ class Evaluator:
                 raise RuntimeError("Channel score cache changed")
             with np.load(path, allow_pickle=False) as packed:
                 return packed["scores"], key, True
+        for compatible in self.compatible:
+            implementation = compatible.get("score_implementation")
+            if not implementation:
+                continue
+            previous_identity = {**identity, "code": implementation}
+            previous_key = digest(previous_identity)
+            previous_path = self.cache / "channel_scores" / (previous_key + ".npz")
+            previous_manifest = previous_path.with_suffix(".json")
+            if previous_path.exists() and previous_manifest.exists():
+                record = read_json(previous_manifest)
+                if (
+                    record["identity"] != previous_identity
+                    or file_hash(previous_path) != record["sha256"]
+                ):
+                    raise RuntimeError("Historical channel score identity mismatch")
+                with np.load(previous_path, allow_pickle=False) as packed:
+                    return packed["scores"], previous_key, True
         model = FingerprintLocalizer(InitialConfig(**parameters))
-        scores = np.empty((len(cases), len(survey.xyz)))
         started = time.perf_counter()
-        for index, (_, _, query, _) in enumerate(cases):
-            values = query.channels[ap]
-            for reference_index, reference in enumerate(survey.observations):
-                scores[index, reference_index] = model.score_pair(values, reference.channels[ap])
+        if parameters["method"] in ("mca", "chamfer"):
+            geometry = self.nearest_geometry(room, ap, level, cases, survey, identity["input"])
+            scores = geometry_scores(geometry, parameters["method"], parameters["epsilon_m"])
+        else:
+            scores = np.empty((len(cases), len(survey.xyz)))
+            for index, (_, _, query, _) in enumerate(cases):
+                values = query.channels[ap]
+                for reference_index, reference in enumerate(survey.observations):
+                    scores[index, reference_index] = model.score_pair(
+                        values, reference.channels[ap]
+                    )
         elapsed = time.perf_counter() - started
         path.parent.mkdir(parents=True, exist_ok=True)
         atomic_npz(path, {"scores": scores})
@@ -343,6 +425,36 @@ class Evaluator:
             },
         )
         return scores, key, False
+
+    def nearest_geometry(self, room, ap, level, cases, survey, inputs):
+        identity = {
+            "code": self.geometry_implementation,
+            "input": inputs,
+            "query_order": [(layout, int(index)) for layout, index, _, _ in cases],
+        }
+        key = digest(identity)
+        path = self.cache / "nearest_geometry" / (key + ".npz")
+        manifest = path.with_suffix(".json")
+        if path.exists() and manifest.exists():
+            record = read_json(manifest)
+            if (
+                digest(record["identity"]) != digest(identity)
+                or file_hash(path) != record["sha256"]
+            ):
+                raise RuntimeError("Nearest-delay cache identity mismatch")
+            with np.load(path, allow_pickle=False) as packed:
+                return {name: packed[name] for name in packed.files}
+        started = time.perf_counter()
+        result = nearest_geometry(
+            [query.channels[ap] for _, _, query, _ in cases],
+            [observation.channels[ap] for observation in survey.observations],
+        )
+        compute_s = time.perf_counter() - started
+        atomic_npz(path, result)
+        write_json(
+            manifest, {"identity": identity, "sha256": file_hash(path), "compute_s": compute_s}
+        )
+        return result
 
     def coarse_predictions(self, parameters, room, subset, level):
         cases = self.query_cases(room, subset, level)
@@ -421,19 +533,46 @@ class Evaluator:
         if path.exists():
             with gzip.open(path, "rt") as handle:
                 return json.load(handle)
-        lea = SmartLEA(LEAConfig(**parameters))
-        predictions, timings = [], []
-        for (_, _, query, _), saved in zip(cases, coarse["predictions"]):
-            initial = Prediction(np.array(saved["xyz"]), saved["status"])
-            started = time.perf_counter()
-            final = lea.predict(query, initial, sources)
-            timings.append(time.perf_counter() - started)
-            if not np.isfinite(final.xyz).all() and np.isfinite(initial.xyz).all():
-                final = Prediction(initial.xyz.copy(), "fallback_invalid_refinement")
-            predictions.append({"xyz": final.xyz.tolist(), "status": final.status})
-        result = {"identity": identity, "predictions": predictions, "predict_s": timings}
-        gzip_json(path, result)
-        return result
+        # Reuse successful earlier passes. Failure is terminal and always returns
+        # the ORIGINAL coarse estimate, even if a later pass is the one that fails.
+        iterations = parameters["iterations"]
+        completed = 0
+        previous = {
+            "identity": identity,
+            "predictions": [{"xyz": row["xyz"], "status": "ok"} for row in coarse["predictions"]],
+            "predict_s": [0.0] * len(cases),
+        }
+        for count in range(iterations - 1, 0, -1):
+            prefix = {**identity, "parameters": {**parameters, "iterations": count}}
+            prefix_path = self.cache / "refinement" / (digest(prefix) + ".json.gz")
+            if prefix_path.exists():
+                with gzip.open(prefix_path, "rt") as handle:
+                    previous = json.load(handle)
+                completed = count
+                break
+        lea = SmartLEA(LEAConfig(**{**parameters, "iterations": 1}))
+        for count in range(completed + 1, iterations + 1):
+            predictions, timings = [], []
+            for index, ((_, _, query, _), saved) in enumerate(zip(cases, previous["predictions"])):
+                elapsed = 0.0
+                if saved["status"].startswith("fallback"):
+                    final = Prediction(np.array(saved["xyz"]), saved["status"])
+                else:
+                    initial = Prediction(np.array(saved["xyz"]), saved["status"])
+                    started = time.perf_counter()
+                    final = lea.predict(query, initial, sources)
+                    elapsed = time.perf_counter() - started
+                    original = np.array(coarse["predictions"][index]["xyz"])
+                    if final.status.startswith("fallback"):
+                        final = Prediction(original, final.status)
+                    elif not np.isfinite(final.xyz).all() and np.isfinite(original).all():
+                        final = Prediction(original, "fallback_invalid_refinement")
+                timings.append(previous["predict_s"][index] + elapsed)
+                predictions.append({"xyz": final.xyz.tolist(), "status": final.status})
+            prefix = {**identity, "parameters": {**parameters, "iterations": count}}
+            previous = {"identity": prefix, "predictions": predictions, "predict_s": timings}
+            gzip_json(self.cache / "refinement" / (digest(prefix) + ".json.gz"), previous)
+        return previous
 
     def vt_objective(self, method, parameters):
         scores, records = [], []

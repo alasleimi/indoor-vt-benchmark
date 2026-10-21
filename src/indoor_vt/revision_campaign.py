@@ -203,6 +203,7 @@ def measured(evaluator, base, stage, method, parameters):
     receipt = path.with_suffix(".summary.json")
     if receipt.exists():
         record = read_json(receipt)
+        path = Path(record.get("artifact", path))
         if record["identity"] != identity or file_hash(path) != record["sha256"]:
             raise RuntimeError("Objective artifact changed")
         return record["score"], {

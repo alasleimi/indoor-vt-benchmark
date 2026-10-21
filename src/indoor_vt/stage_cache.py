@@ -9,9 +9,10 @@ from .provenance import digest, json_default, replace_file
 
 
 class StageCache:
-    def __init__(self, directory, implementation):
+    def __init__(self, directory, implementation, previous_implementations=()):
         self.directory = Path(directory)
         self.implementation = implementation
+        self.previous_implementations = tuple(previous_implementations)
         self.hits = 0
         self.misses = 0
 
@@ -22,6 +23,14 @@ class StageCache:
             self.hits += 1
             with gzip.open(path, "rt", encoding="utf-8") as handle:
                 return json.load(handle)
+        for implementation in self.previous_implementations:
+            previous = (
+                self.directory / stage / (digest([implementation, stage, identity]) + ".json.gz")
+            )
+            if previous.exists():
+                self.hits += 1
+                with gzip.open(previous, "rt", encoding="utf-8") as handle:
+                    return json.load(handle)
         self.misses += 1
         result = compute()
         path.parent.mkdir(parents=True, exist_ok=True)

@@ -336,7 +336,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=Path.cwd())
     parser.add_argument("--namespace", default="development", choices=("development",))
-    parser.add_argument("--revision", default="v2")
+    parser.add_argument("--revision", default="v3")
     parser.add_argument("--shadow", type=Path, default=Path("../experiments/indoor_vt_shadow"))
     parser.add_argument("--workers", type=int, default=2)
     args = parser.parse_args()

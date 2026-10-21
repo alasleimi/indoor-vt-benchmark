@@ -1,0 +1,74 @@
+{
+  "old_code_hash": "082d1fcad6ceae22f808e49605c320d4cf421b572efc75286e8631bb49ce2bb5",
+  "new_code_hash": "524c7e047ae681d27eb67fe63bb3c0ce77e4befd05678279a277ca786c15d44c",
+  "exact": true,
+  "exact_coarse_predictions": 288,
+  "exact_vt_methods": 12,
+  "exact_cached_scores": 1144000,
+  "tests": {
+    "passed": 53,
+    "elapsed_s": 20.66
+  },
+  "ruff": "clean",
+  "inputs": "calibration observations and controlled fixtures; no held-out evaluation",
+  "timings": [
+    {
+      "track": "receiver",
+      "method": "mca",
+      "queries": 1000,
+      "scores": 286000,
+      "original_score_compute_s": 3.1932810998987406,
+      "new_score_and_cache_io_s": 1.5890112000051886,
+      "initial_score_cache_hit": false,
+      "warm_cache_io_s": 0.03828149987384677,
+      "warm_hit": true,
+      "score_cache": "29d1d8abdb00eaa494f30bfe4e272ee3c1fee0167e3fb3bb4c163d17341d9a99",
+      "exact": true
+    },
+    {
+      "track": "receiver",
+      "method": "chamfer",
+      "queries": 1000,
+      "scores": 286000,
+      "original_score_compute_s": 4.966707800049335,
+      "new_score_and_cache_io_s": 0.28813929995521903,
+      "initial_score_cache_hit": false,
+      "warm_cache_io_s": 0.04141029994934797,
+      "warm_hit": true,
+      "score_cache": "5398f8c7b9a83ee625013d809412edb00a60d26b02199800c2fa3897dba92b3f",
+      "exact": true
+    },
+    {
+      "track": "direct",
+      "method": "mca",
+      "queries": 1000,
+      "scores": 286000,
+      "original_score_compute_s": 3.4789692000485957,
+      "new_score_and_cache_io_s": 3.391913100145757,
+      "initial_score_cache_hit": false,
+      "warm_cache_io_s": 0.04177720006555319,
+      "warm_hit": true,
+      "score_cache": "8239d9655a816945b95b89b9e703251ebba56f4142707db33c10a7b7fb1b7667",
+      "exact": true
+    },
+    {
+      "track": "direct",
+      "method": "chamfer",
+      "queries": 1000,
+      "scores": 286000,
+      "original_score_compute_s": 5.511041100136936,
+      "new_score_and_cache_io_s": 0.3603647002018988,
+      "initial_score_cache_hit": false,
+      "warm_cache_io_s": 0.04005660000257194,
+      "warm_hit": true,
+      "score_cache": "91c52c218f32bfe3eefa7d1c3c2cfdfb737a7f9d8de2d92c90916ef06fcd4bf5",
+      "exact": true
+    }
+  ],
+  "limitation": "One AP/level/room per track; original timing from historical receipt, not a controlled same-time runtime comparison",
+  "artifacts": {
+    "baseline.json": "eb74ae7e8eb60d272a37445d984980b8cc914f1dfa21d46e81936c7c0f0b29bc",
+    "revised.json": "f88e4a1a8bb7e03e8b73eb5c3c662e8018a3ffcf42fe15c2d7327f08e2348193",
+    "cache_io_indexed.json": "98a3456d24077de515b7ce43e4c596059dce3873b95fefc3d52d56c1ee0fa387"
+  }
+}

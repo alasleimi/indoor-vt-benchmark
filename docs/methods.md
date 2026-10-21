@@ -111,7 +111,7 @@ the table lists initial values, not every possible adaptive trial.
 | 3D fitting | Centered linear least-squares initialization, equally weighted range residuals, unconstrained signed coordinates, linear loss, analytic Jacobian, LM solver | Code and method definition; not fully expanded in the configuration receipt |
 | Fit limits / failure | `max_nfev=100`; reject nonfinite coordinates or solver nonconvergence; no residual-quality cutoff | Code only for MPUrge reconstruction |
 | Fit numerical defaults | Pinned SciPy 1.15.3: `ftol=xtol=gtol=1e-8`, `x_scale=1`; NumPy default rank and least-squares cutoffs | Dependency lock and code, not expanded in method config |
-| Candidate merging | Greedy complete-link insertion, lexicographic coordinate order, first eligible cluster, coordinate-wise median representative | Code and method definition |
+| Candidate merging | Greedy complete-link insertion, ascending x then y then z (original index breaks exact ties), first created eligible cluster, coordinate-wise median representative | Code and method definition |
 | Support | Number of unique survey-position owners after union; retain support >= beta times the arithmetic mean over merged candidates | Code and method definition |
 | MAP coverage | Mean match cost divided by matches / max(original fingerprint lengths) | Code and method definition; selected interpretation of prose/equation conflict |
 | Multi-AP localization | Arithmetic mean of per-AP scores before neighbor selection; a nonfinite channel score makes the combined score nonfinite | Code; a multi-AP adaptation |

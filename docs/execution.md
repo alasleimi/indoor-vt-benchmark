@@ -4,7 +4,7 @@ This is a local-only repository. The original plan remains at
 `../../DATASET_PIPELINE_PLAN.md`; it was not moved into this repository.
 The publication namespace remains unused.
 
-## Active execution revision v2
+## Active execution revision v3
 
 The [external plan](../../DATASET_PIPELINE_PLAN.md) now runs initial
 published/disclosed presets before deeper main calibration. Greedy median and
@@ -18,6 +18,13 @@ The transition preserves the original source snapshot and 27 completed
 MPUrge-MAP trials (25 receiver, 2 direct), plus six completed interim presets.
 Partial per-case caches remain reusable. Compatibility receipts link old and
 new code, data and artifact hashes; old files are not relabelled in place.
+
+Revision v3 adds exact nearest-delay geometry reuse, cached grouping, lightweight
+source-coordinate summaries and LEA iteration-prefix reuse. The v2 source and
+campaign are preserved. Completed v2 objective receipts reference their original
+artifacts; compatible per-case and intermediate caches are reused explicitly.
+The scientific protocol and 450-job schedule are unchanged. See the
+[performance record](performance.md) and [validation receipt](cache_optimization_validation.json).
 
 ## Implemented
 
@@ -78,7 +85,7 @@ computer is shut down or asleep.
 
 ## Calibration and evaluation campaign
 
-Full scientific calibration started on 2026-10-21. Revision v2 runs two
+Full scientific calibration started on 2026-10-21. Revision v3 runs two
 persistent workers with one numerical-library thread each. During the code
 transition two useful preset workers continued on an immutable old source
 snapshot. The revised workers use verified caches and preserve all original
@@ -100,7 +107,7 @@ remains external through the campaign so registry changes cannot invalidate
 existing freezes. Importing eligible implementations follows the campaign audit.
 
 The revised graph has **450 jobs**, recorded in
-`runs/development/revisions/v2/specification.json`:
+`runs/development/revisions/v3/specification.json`:
 
 1. 110 initial main presets: 8 coarse, 72 VT including merger alternatives,
    and 30 pipeline presets. The default merger of every VT method is covered
@@ -113,19 +120,19 @@ The revised graph has **450 jobs**, recorded in
 4. 60 primary test evaluations and 64 conditional shadow test evaluations.
 
 The original 248-job specification/status remains in `runs/development/campaign`.
-It is historical and must not run concurrently with v2. The new runner locks
+It and revision v2 are historical and must not run concurrently with v3. The runner locks
 its revision, checks source and shadow identities, retries an error once, and
 blocks later phases after unresolved failures. If the parent exits, workers
 stop too; restart resumes saved objectives and searches. Interrupted in-flight
 case computations may repeat, while completed artifacts remain available.
 
 Live progress and completed results are in
-`runs/development/revisions/v2/report.md` and `status.json`. The runner updates
+`runs/development/revisions/v3/report.md` and `status.json`. The runner updates
 them automatically. Completed candidate counts are distinct from completed
 pipeline jobs. Full searches can take much longer than propagation.
 
 ```powershell
-uv run python scripts/run_revision_campaign.py --revision v2 --workers 2
+uv run python scripts/run_revision_campaign.py --revision v3 --workers 2
 ```
 
 This command resumes the recorded campaign. Do not edit estimator settings or
@@ -153,13 +160,16 @@ unless their identities are explicitly covered. Atomic writes use separate
 process temporary files. Standard complete-link clustering retains quadratic
 distance storage; it does not impose a source cap or approximate clustering.
 
-Validation: **43 tests passed**, Ruff clean, and an old/new implementation audit
+Validation: **53 tests passed**, Ruff clean, and an old/new implementation audit
 matched **288 coarse predictions exactly** across both observation tracks and
 all four localizers. All **12 VT methods** matched exactly on a controlled
 multipath fixture (consensus trials reduced only for that verification fixture).
 Tests also cover cache reuse across A/B/A+B and k, historical cache imports,
 cluster memberships, refinement reuse, conditional DBSCAN parameters, resumed
 searches, stage dependencies and the main-before-shadow barrier.
+The v3 checks also matched 1,144,000 MCA/Chamfer scores exactly on full calibration
+cases and cover LEA prefix reuse, later-iteration failure, unbounded peak counts,
+grouping reuse and source-summary invalidation.
 
 Original timings remain original timings. Cached score receipts record matrix
 compute time separately; new per-query coarse timings cover ranking only.

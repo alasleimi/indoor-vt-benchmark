@@ -166,15 +166,28 @@ class MPUrgeReconstructor:
                     survey.xyz, rows, scopes, self.matcher, c.triangle, c.triangle_tolerance_m
                 ),
             )
-            edges = [(tuple(a), tuple(b), cost, distance) for a, b, cost, distance in edges]
-            # Index once; local scopes reuse the identical pair matches.
-            pair_edges = {}
-            for edge in edges:
-                pair_edges.setdefault((edge[0][0], edge[1][0]), []).append(edge)
-            groups = set()
-            for ids in scopes:
-                local = [edge for pair in combinations(ids, 2) for edge in pair_edges.get(pair, ())]
-                groups.update(self.group_builder(local, c.grouping))
+
+            def build_groups():
+                # Index once; local scopes reuse the identical pair matches.
+                pair_edges = {}
+                for left, right, cost, distance in edges:
+                    edge = (tuple(left), tuple(right), cost, distance)
+                    pair_edges.setdefault((left[0], right[0]), []).append(edge)
+                groups = set()
+                for ids in scopes:
+                    local = [
+                        edge for pair in combinations(ids, 2) for edge in pair_edges.get(pair, ())
+                    ]
+                    groups.update(self.group_builder(local, c.grouping))
+                return sorted(groups)
+
+            groups = cached(
+                cache if self.group_builder is graph_groups else None,
+                "groups",
+                {"graph": graph_identity, "grouping": c.grouping},
+                build_groups,
+            )
+            groups = [tuple(map(tuple, group)) for group in groups]
 
             def fit_groups():
                 records, rejected = [], []
