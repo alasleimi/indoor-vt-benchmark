@@ -17,33 +17,46 @@ def test_named_streams_do_not_depend_on_execution_order():
 
 
 def test_complete_design_constraints_and_replay(tmp_path):
-    design = generate_design(ROOT/"configs/dataset.json", ROOT/"configs/seeds.json", "pilot", tmp_path/"design.json")
-    repeated = generate_design(ROOT/"configs/dataset.json", ROOT/"configs/seeds.json", "pilot", tmp_path/"design.json")
+    design = generate_design(
+        ROOT / "configs/dataset.json",
+        ROOT / "configs/seeds.json",
+        "pilot",
+        tmp_path / "design.json",
+    )
+    repeated = generate_design(
+        ROOT / "configs/dataset.json",
+        ROOT / "configs/seeds.json",
+        "pilot",
+        tmp_path / "design.json",
+    )
     assert design == repeated
     assert len(design["rooms"]) == 16
     for room in design["rooms"]:
         polygon = Polygon(room["polygon_xy"])
         xyz = np.asarray(room["survey_xyz"])
         n = room["survey_xy_count"]
-        assert len(xyz) == 2*n
+        assert len(xyz) == 2 * n
         np.testing.assert_array_equal(xyz[:n, :2], xyz[n:, :2])
         assert np.all(xyz[:n, 2] == 1) and np.all(xyz[n:, 2] == 1.5)
-        assert np.linalg.matrix_rank(xyz-xyz.mean(0)) == 3
+        assert np.linalg.matrix_rank(xyz - xyz.mean(0)) == 3
         assert all(polygon.contains(Point(p[:2])) for p in xyz)
         aps = list(room["access_points_xyz"].values())
-        assert np.linalg.norm(np.array(aps[0][:2])-aps[1][:2]) >= 0.4*room["diameter_m"]
+        assert np.linalg.norm(np.array(aps[0][:2]) - aps[1][:2]) >= 0.4 * room["diameter_m"]
         floor = [face for face in scene_faces(room) if face.get("surface_id") == "floor"]
-        assert abs(sum(Polygon(np.array(f["vertices"])[:, :2]).area for f in floor)-polygon.area) < 1e-8
+        assert (
+            abs(sum(Polygon(np.array(f["vertices"])[:, :2]).area for f in floor) - polygon.area)
+            < 1e-8
+        )
         for layout in room["layouts"]:
             boxes = [Polygon(b["footprint_xy"]) for b in layout["boxes"]]
             assert len(boxes) == layout["box_count"]
             for i, box in enumerate(boxes):
                 assert polygon.contains(box)
-                assert box.distance(polygon.boundary) >= 0.1-1e-9
-                assert all(box.distance(Point(ap[:2])) >= 0.5-1e-9 for ap in aps)
-                assert all(box.distance(other) >= 0.25-1e-9 for other in boxes[:i])
+                assert box.distance(polygon.boundary) >= 0.1 - 1e-9
+                assert all(box.distance(Point(ap[:2])) >= 0.5 - 1e-9 for ap in aps)
+                assert all(box.distance(other) >= 0.25 - 1e-9 for other in boxes[:i])
             assert len(layout["queries_xyz"]) == 100
             for q in layout["queries_xyz"]:
                 assert polygon.contains(Point(q[:2]))
                 assert 1 <= q[2] <= 1.5
-                assert all(box.distance(Point(q[:2])) >= 0.25-1e-9 for box in boxes)
+                assert all(box.distance(Point(q[:2])) >= 0.25 - 1e-9 for box in boxes)

@@ -1,0 +1,3 @@
+* text=auto eol=lf
+# Preserve the vendored helper's original bytes and notice formatting.
+src/indoor_vt/matlab_compat/xmlreader.m -text -whitespace

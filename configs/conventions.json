@@ -1,0 +1,19 @@
+{
+  "coordinate_frame": "metres, right-handed global XYZ, z vertical, local room rotated around global origin",
+  "survey_grid": "0.5 m spacing, 0.25 m local XY phase, both heights at each valid XY location",
+  "array_orientation_deg": [0.0, 0.0, 0.0],
+  "node_channels": {"physical_transmitter": 0, "receiver": 1, "paa_tx": 0, "paa_rx": 0},
+  "ap_acquisition": "independently identified A and B channels; A+B reuses both acquisitions",
+  "delay_unit": "seconds in native archive; metres in estimator view",
+  "delay_to_range_c_mps": 300000000.0,
+  "native_gain_unit": "dB; complex amplitude = 10^(Gain/20) * exp(i*Phase)",
+  "native_phase_unit": "radians",
+  "native_angles": "degrees; azimuth about z; polar elevation from +z, not elevation above horizon",
+  "native_precision": "NIST JSON writer casts channel arrays to IEEE single before serialization; preserved verbatim in gzip",
+  "receiver_array_spacing_c_mps": 299792458.0,
+  "receiver_steering_c_mps": 300000000.0,
+  "receiver_snr_reference": "strongest clean sampled average-array power / 10^(SNR_dB/10)",
+  "noise_rng": "NumPy PCG64 with independent semantic seed per channel/sample/track/level",
+  "native_ray_identity": "privileged visualizer path coordinates; never estimator features",
+  "reference_source_scope": "real AP plus every geometrically valid first/second order source in the empty survey-time room, regardless of sampled visibility or power"
+}

@@ -1,0 +1,118 @@
+{
+  "schema": "indoor-vt.upstream-evidence.v1",
+  "files": [
+    {
+      "role": "paper",
+      "workspace_relative_path": "Majid_papers/MPUrge_Merge_Purge_and_Urge_Multipath_Fingerprints_into_Virtual_Transmitters.pdf",
+      "sha256": "be82b3a7bc52dd56e5e64da4ba5cecb80768d991c7df209604a1beacf43beb02",
+      "bytes": 459583
+    },
+    {
+      "role": "paper",
+      "workspace_relative_path": "Majid_papers/MPUrge-MAP_A_White-Box_Multipath-Assisted_Positioning_for_Indoor_Localization_in_6G_Networks.pdf",
+      "sha256": "7bdbbefe016773ff633d0dc93c59ac5f59a3d66d63296bb989dbe6586f393df3",
+      "bytes": 1711124
+    },
+    {
+      "role": "paper",
+      "workspace_relative_path": "Majid_papers/SMART-LEA_Scalable_Multipath-Aware_Localization_Enhancement_for_IoT_and_6G_Sensor_Networks.pdf",
+      "sha256": "2d680fdb1b3fe9a786e000407880116dd7bd55283398a81a9d9188834eee32bf",
+      "bytes": 1067228
+    },
+    {
+      "role": "paper",
+      "workspace_relative_path": "Majid_papers/CNN-Based_Multipath-Aware_Fingerprinting_for_Indoor_Localization_in_6G_mm-Wave_Networks.pdf",
+      "sha256": "2361051610f4a247c3b368d4d5b4ad045962f9a55e2ce8c79bd31b2c9ae04439",
+      "bytes": 1269946
+    },
+    {
+      "role": "thesis",
+      "workspace_relative_path": "Majid_papers/MasterThesis_MajdiAbdmoulah.pdf",
+      "sha256": "c89ac9c3810fed9003ce96676f824b8603a72b1051a3b16c38caf459a0f30536",
+      "bytes": 1512390
+    },
+    {
+      "role": "thesis",
+      "workspace_relative_path": "Majid_papers/BachelorThesis_MajdiAbdmoulah.pdf",
+      "sha256": "575d923e239b1faccf19d7aebdd7c78c25b38d51301bd439fa17e0a2a785f849",
+      "bytes": 815833
+    },
+    {
+      "role": "published-adapter",
+      "workspace_relative_path": "publication/sapp/src/sapp/receiver.py",
+      "sha256": "1d854decdd6dd457afb4e5c72fa59192e986aba2d1ef5e5f61d943fbb0d3536e",
+      "bytes": 6195
+    },
+    {
+      "role": "published-adapter",
+      "workspace_relative_path": "publication/sapp/src/sapp/discovery.py",
+      "sha256": "e6a78bdc4941e0824376bd4bd2297980a16a1b39b451361263d753fe88ef5b80",
+      "bytes": 9658
+    },
+    {
+      "role": "published-adapter",
+      "workspace_relative_path": "publication/sapp/src/sapp/baselines/mpurge_map.py",
+      "sha256": "4f4dee166295ca312cc227d21de0ae008fd6d2a5bbb133ee273902e53e934468",
+      "bytes": 8094
+    },
+    {
+      "role": "published-adapter",
+      "workspace_relative_path": "publication/sapp/src/sapp/baselines/source_fitting.py",
+      "sha256": "8b43d05ef5d18c7fdd79120a4cba9f2e3b8a874d7ff67885ad4e81bc8724be2e",
+      "bytes": 2472
+    },
+    {
+      "role": "published-adapter",
+      "workspace_relative_path": "publication/sapp/src/sapp/baselines/virtual_transmitters.py",
+      "sha256": "7685ec4640583533dfa356eb500e4a964799295bbfe7392e9e2283c8b667e2e8",
+      "bytes": 5942
+    },
+    {
+      "role": "manuscript",
+      "workspace_relative_path": "publication/sapp/paper/supplement.tex",
+      "sha256": "921064001d0f3997acd9cc778ba3a339fb4a09f648fe37dc7f8a56c9ecea6bdc",
+      "bytes": 34093
+    },
+    {
+      "role": "interpretation-evidence",
+      "workspace_relative_path": "publication/tumidpindoor/results/mpurge_vt_full/all_method_leaderboard.csv",
+      "sha256": "4d0e4a43e91337b14fde40f92446b3c31c32e7a2e1ee4395a22c2eee52f76c49",
+      "bytes": 4127
+    },
+    {
+      "role": "interpretation-evidence",
+      "workspace_relative_path": "experiments/four_paper_report/corrected_mpurge_vt_suite.py",
+      "sha256": "b98f13943d3dc500f66fa40faa90eff7d09ca8249fc728170ebfccbaeddc789f",
+      "bytes": 106482
+    },
+    {
+      "role": "interpretation-evidence",
+      "workspace_relative_path": "experiments/four_paper_report/vt_registration_mpurge_source_variants.py",
+      "sha256": "edb631830a40fc18a71ad058dbf7d9a6428aefa464ecd2ebc8a436db379c63e9",
+      "bytes": 7897
+    },
+    {
+      "role": "simulator",
+      "workspace_relative_path": "simulator/nist-qd-realization/src/utils/writeQdJsonOutput.m",
+      "sha256": "595ba65444bcaadd341ff6454345827b2cfa2d2a287f40eaa94195428721ac35",
+      "bytes": 4642
+    },
+    {
+      "role": "simulator",
+      "workspace_relative_path": "simulator/nist-qd-realization/src/raytracer/xmlreader.m",
+      "sha256": "86285ba55a763a9b4e1f50380efdef1c43d8977e84d82f944cd241d917224db4",
+      "bytes": 9953
+    }
+  ],
+  "online_sources": [
+    {
+      "role": "2019 comparator publication",
+      "url": "https://doi.org/10.1109/ICC.2019.8761636"
+    },
+    {
+      "role": "author dissertation 2022, section 6.2.3 and bibliography item 263",
+      "url": "https://mediatum.ub.tum.de/doc/1647114/document.pdf"
+    }
+  ],
+  "policy": "Historical experiments inform ambiguity interpretations only; their tuned numeric values and privileged preprocessing are not imported."
+}

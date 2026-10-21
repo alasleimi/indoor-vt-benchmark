@@ -1,0 +1,88 @@
+{
+  "recorded_local": "2026-10-21 03:46:30",
+  "provenance": {
+    "git_commit": "5b5a1922301aec54a99993a81c47c8816a350c15",
+    "source_hash": "814ce42c53659df2f23ab0be9eee6267d1416d0ec3728a2a657e327c8d060713",
+    "files": {
+      "configs/calibration.json": "a57ed9428fff7b144f1b425d8a294ae3f4765e684f740d49ff6f5fe090aa0932",
+      "configs/conventions.json": "31ce3973bec8cf9d0265965f1b346e9e60df139e49382848c605762620cc46f0",
+      "configs/dataset.json": "4e5dedea4f754d6d5e6ab94c245dc4af57ea3fab6067f3c6280ee7a197f71de2",
+      "configs/seeds.json": "e3458b3f198aaae1fb297f767413f6ad8c3c4907702b8acfbf797bb62cc9183e",
+      "src/indoor_vt/__init__.py": "334dbe88c33c0c5d1c13f423ad68cca8e098d897c42882890b5917df318678ed",
+      "src/indoor_vt/audit.py": "e340a18a124a4192978f8755bc5fe440dded22588475110efc023bb960a25dec",
+      "src/indoor_vt/calibration.py": "f97bfaf15f5a7c4490b3d93643962064d221ef7c09ca729e2f8c2ddf7afa665a",
+      "src/indoor_vt/campaign.py": "01ef39b33e8eb5846fc110a1a7f6924cda630f57d76dbd0e05fc0c4f35225a37",
+      "src/indoor_vt/cli.py": "40611647ecb883c9c2a6b98ad730ebd0070eb6eba7b52e64e16e5ac4fc8c0251",
+      "src/indoor_vt/consensus.py": "8be046f48a003c7a2aff3a1beb443bbad7a7c0812c9c6e0a7bbddbe831abcce0",
+      "src/indoor_vt/contracts.py": "e7892a0d97774275d5124ce356cdefdf7cceef5c170d442ea9271c30235dbc31",
+      "src/indoor_vt/dataset.py": "b0ed17b9d405dca2a619e9cf0be7be07611f0ade25abb274f2688a0cb81686ab",
+      "src/indoor_vt/diffassign.py": "96c8c14f3f919d752678cbcfce90b01714f89eb021304876fd0f006abb71eb8f",
+      "src/indoor_vt/evaluation.py": "a986dc3bde11e1cd31d9c99225f50fac68e337c2f3f1c7f40176db806aa5d447",
+      "src/indoor_vt/finish.py": "a1cf578cd91430b30111f190b9556fbad5338e74c53a5166c8ab0db5c946b5d8",
+      "src/indoor_vt/fitting.py": "b8bf44393f8150fd67c709a0826a66bbd16ee8bebdb6ad17ca17a4c6750d25aa",
+      "src/indoor_vt/generation.py": "f66edef111631d16946a0e29793d3aad17d5088435605afac6ab27301bee2552",
+      "src/indoor_vt/localization.py": "34023c292ba744017a8ed0c0d6bfdba797c467eb842d32db369e028f18899d35",
+      "src/indoor_vt/matching.py": "2ab04ba8355849ebaa0c7f0a2e3d5262eaf25b545cc3998b8587a7c3e4aeb8b6",
+      "src/indoor_vt/matlab_compat/wrapTo2Pi.m": "a6b90a52ea0c1032bdafd0defe290c15b415f0805a0aba85de8ce9fb1ee910fd",
+      "src/indoor_vt/matlab_compat/xmlreader.m": "956714a9b7d41778dd76b8852db80f5f777cafd446076c2237293024d63be399",
+      "src/indoor_vt/metrics.py": "33c46588b304cbd2039173bbce46f075eb063cbc42b8926bcc5b8bb666a277f9",
+      "src/indoor_vt/observations.py": "ae2242217199bd4f898bfed2a1af7bc16254746f4876e84cae02ccbe97723d00",
+      "src/indoor_vt/pipeline.py": "0ec1095ba0e6f057ab2312ceb001e5433d43d1bcbfe5e42d8f168ff2d4bd5a4e",
+      "src/indoor_vt/provenance.py": "c6602780c2cf7f3d45059e79c440fc8097bf7118f23490c7c03d09a0c0fdff4c",
+      "src/indoor_vt/reconstruction.py": "a407004f6e8703bcab8565fe9253551ba3482d042172d26e9021f1e19ed2fc53",
+      "src/indoor_vt/registry.py": "8170cca9e423dca65e07f55f032f8d8f53b3bd141237b9bca5960fa7584f1dbb",
+      "src/indoor_vt/replay.py": "0a0c4cd757c2c9271ca2864c6f837d5de2a7bffe8d6424b016d758fdbdd6ef0e",
+      "src/indoor_vt/search_spaces.py": "5283ece214aa8c19ebc793287ea1b88b10e0a9921592220cc0d2a8849403b069",
+      "src/indoor_vt/simulation.py": "19398e25b10682235f4146d0eb49254ac50643a88d48e5d0a3a13eaea9d00129",
+      "src/indoor_vt/truth.py": "65af8c06290cab30dd86f927e9c164b26c2c4463bc64e8de0adf107d239411d4",
+      "src/indoor_vt/zayets2019.py": "b9cd7987dd33a0ec60ff106a4ca8a5343a7d0b68a04b4e862c9056e3dce3e1d9",
+      "pyproject.toml": "a24c21bde4086ca91239051d22bb0dfcb6bb27f5657eef5166e62380732f41c7",
+      "uv.lock": "a3dccc24347b1bd29623089f1dc461781b7f2de76732640f33bb5f0d4623653d"
+    },
+    "python": "3.11.14",
+    "platform": "Windows-10-10.0.26200-SP0",
+    "numpy": "2.2.6",
+    "dependencies": {
+      "numpy": "2.2.6",
+      "scipy": "1.15.3",
+      "shapely": "2.1.2",
+      "numba": "0.62.1",
+      "matplotlib": "3.10.1"
+    }
+  },
+  "checks": [
+    {
+      "arguments": [
+        "-m",
+        "ruff",
+        "check",
+        "src",
+        "tests"
+      ],
+      "exit_code": 0,
+      "elapsed_s": 1.884982000105083,
+      "stdout": "All checks passed!\n",
+      "stderr": ""
+    },
+    {
+      "arguments": [
+        "-m",
+        "pytest",
+        "-q"
+      ],
+      "exit_code": 0,
+      "elapsed_s": 17.143261399818584,
+      "stdout": ".......................                                                  [100%]\n23 passed in 15.80s\n",
+      "stderr": ""
+    }
+  ],
+  "partial_development_audit": {
+    "completed_scenarios": 150,
+    "frames": 17860,
+    "survey_channels": 14,
+    "maximum_native_image_error_m": 0.0009424534481959219,
+    "observation_conditions_checked": 1076
+  },
+  "publication_namespace_generated": false,
+  "scientific_calibration_complete": false
+}

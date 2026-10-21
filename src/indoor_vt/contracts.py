@@ -1,4 +1,5 @@
 """Estimator-facing records deliberately contain no evaluator or native-ray fields."""
+
 from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Protocol
@@ -47,8 +48,11 @@ class SourceMap:
     diagnostics: dict = field(default_factory=dict)
 
     def __post_init__(self):
-        object.__setattr__(self, "by_ap", {ap: readonly(np.asarray(p).reshape(-1, 3), 2)
-                                          for ap, p in self.by_ap.items()})
+        object.__setattr__(
+            self,
+            "by_ap",
+            {ap: readonly(np.asarray(p).reshape(-1, 3), 2) for ap, p in self.by_ap.items()},
+        )
 
     def bag(self):
         return np.concatenate(list(self.by_ap.values()), axis=0) if self.by_ap else np.empty((0, 3))
@@ -71,4 +75,6 @@ class Reconstructor(Protocol):
 
 
 class Refiner(Protocol):
-    def predict(self, query: DelayObservation, initial: Prediction, sources: SourceMap) -> Prediction: ...
+    def predict(
+        self, query: DelayObservation, initial: Prediction, sources: SourceMap
+    ) -> Prediction: ...

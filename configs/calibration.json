@@ -1,0 +1,14 @@
+{
+  "schema": "indoor-vt.calibration.v1",
+  "budget": {"broad": 32, "expansion": 8, "maximum_expansions": 2, "refine": 16},
+  "tie_break": "minimum score, then lexicographic canonical parameter JSON",
+  "candidate_sampling": "independent uniform draws over each declared candidate list",
+  "aggregation": "uniform arithmetic mean over all declared cases",
+  "component_sequence": ["coarse error", "VT OSPA", "LEA final error with both upstream components frozen"],
+  "end_to_end": "joint random search over initial, VT and LEA parameters for each named pipeline",
+  "measurement_repeats": 1,
+  "algorithm_initialization_repeats": 1,
+  "shadow_relative_improvement_required": 0.05,
+  "budget_reason": "32 broad combinations and 16 local combinations are a fixed initial campaign budget; two deterministic boundary expansions. Pilot VT fits range from seconds upward; full sweeps are long-running offline jobs.",
+  "scope": "Configurations are shared across all room families, rooms, noise conditions, layouts and A/B/AB subsets. Component-mode upstream configurations are also reused across pipeline partners. LEA and end-to-end configurations belong to a named initial/VT pipeline pairing."
+}
