@@ -1,0 +1,8 @@
+{
+  "schema": "indoor-vt.seeds.v1",
+  "root_seeds": {"pilot": 20261020, "development": 20261021, "publication": 20261022},
+  "derivation": "first 8 SHA256 bytes, little-endian, of canonical JSON [root_seed, namespace, semantic_keys]",
+  "python_generator": "numpy.random.PCG64",
+  "matlab_generator": "twister; derived uint64 seed modulo 2**32",
+  "publication_policy": "Reserved; never used by pilot or development commands. Freeze implementations and calibration protocol before publication generation."
+}
