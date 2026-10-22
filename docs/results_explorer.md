@@ -17,7 +17,13 @@ configuration to inspect its saved reconstruction against ground truth, room
 geometry and the survey points. Drag to rotate, Shift-drag to pan, and scroll
 to zoom; top/side views and fit-all/room framing are available. Hover or tap a
 source for its coordinates and reflection labels. Match links reproduce the
-saved F1 assignment, including combined-bag matching for A+B. Query obstacle
+saved F1 assignment, including combined-bag matching for A+B. A world-aligned
+background grid shows metre spacing in 3D, top and side views. Turn off
+**Second-order truth** to hide sources requiring two reflections and their
+match links. Direct and first-order sources remain visible, including any
+shared coordinate with a direct or first-order path. This is a display filter:
+the saved OSPA/F1 scores and predictions do not change. **Fit all** frames the
+currently visible layers. Query obstacle
 layouts do not alter these survey-time reconstructions. The viewer draws every
 prediction, including large failed reconstructions; it reports off-screen
 counts when zoomed in. The renderer and coordinates load only on opening this tab.

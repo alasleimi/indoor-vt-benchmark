@@ -7,9 +7,9 @@ export function mountVTMap(
     <div class="map-selectors"><label>Room<select data-map="room"></select></label><label>Noise level<select data-map="noise"></select></label><label>APs<select data-map="ap"><option>A</option><option>B</option><option>A+B</option></select></label></div>
     <div class="map-metrics" aria-live="polite"></div>
     <div class="map-toolbar"><button data-camera="all">Fit all</button><button data-camera="room">Room view</button><button data-camera="3d">3D</button><button data-camera="top">Top</button><button data-camera="side">Side</button><button data-camera="in" aria-label="Zoom in">+</button><button data-camera="out" aria-label="Zoom out">−</button></div>
-    <div class="map-layers"><label><input type="checkbox" data-layer="predicted" checked> <span class="map-dot predicted"></span>Predicted</label><label><input type="checkbox" data-layer="truth" checked> <span class="map-dot truth"></span>Ground truth</label><label><input type="checkbox" data-layer="survey" checked>Survey</label><label><input type="checkbox" data-layer="links" checked>Match links</label></div>
+    <div class="map-layers"><label><input type="checkbox" data-layer="predicted" checked> <span class="map-dot predicted"></span>Predicted</label><label><input type="checkbox" data-layer="truth" checked> <span class="map-dot truth"></span>Ground truth</label><label title="Show ground-truth sources requiring two reflections. Direct and first-order sources stay visible when this is off."><input type="checkbox" data-layer="secondary" checked>Second-order truth</label><label><input type="checkbox" data-layer="survey" checked>Survey</label><label><input type="checkbox" data-layer="links" checked>Match links</label><label><input type="checkbox" data-layer="grid" checked>Grid</label></div>
     <div class="map-plot"><canvas tabindex="0" aria-label="Interactive three-dimensional VT map. Drag or use arrow keys to rotate; use plus and minus to zoom."></canvas><div class="map-tooltip" hidden></div><div class="map-loading" role="status">Loading saved coordinates…</div></div>
-    <div class="map-status" aria-live="polite"></div><p class="stat-caption">Drag to rotate · Shift-drag to pan · Scroll or +/− to zoom · Hover or tap a source for its coordinates. Dark diamonds mark physical APs. Links use the recorded one-to-one F1 matches within 0.5 m.</p>
+    <div class="map-status" aria-live="polite"></div><p class="stat-caption">Drag to rotate · Shift-drag to pan · Scroll or +/− to zoom · Hover or tap a source for its coordinates. Dark diamonds mark physical APs. Links use the recorded one-to-one F1 matches within 0.5 m. Visibility controls do not change the scores.</p>
     <div class="map-point" aria-live="polite">Select a source to inspect its coordinates and reflection labels.</div>`;
   const $ = (selector) => container.querySelector(selector);
   const roomSelect = $('[data-map="room"]'),
@@ -54,15 +54,26 @@ export function mountVTMap(
     fitMode = "all";
   let predictedScreen = new Float32Array(),
     truthScreen = [],
+    reflectionOrders = [],
+    gridBounds = null,
     matchedPredicted = new Set(),
     matchedTruth = new Set();
-  const layers = { predicted: true, truth: true, survey: true, links: true },
+  const layers = {
+      predicted: true,
+      truth: true,
+      secondary: true,
+      survey: true,
+      links: true,
+      grid: true,
+    },
     pointers = new Map();
   let drag = null,
     pinch = null;
   const fmt = (value) =>
     Number(value).toLocaleString("en-US", { maximumFractionDigits: 4 });
   const count = (value) => value.toLocaleString("en-US");
+  const truthVisible = (index) =>
+    layers.truth && (layers.secondary || reflectionOrders[index] < 2);
   function project(x, y, z) {
     x -= center[0];
     y -= center[1];
@@ -92,10 +103,14 @@ export function mountVTMap(
       add(x, y, data.scene.ceiling_m);
     }
     if (mode === "all") {
-      for (const source of data.truth) add(...source.xyz);
-      for (let i = 0; i < data.predicted.length; i += 3)
-        add(data.predicted[i], data.predicted[i + 1], data.predicted[i + 2]);
+      data.truth.forEach((source, i) => {
+        if (truthVisible(i)) add(...source.xyz);
+      });
+      if (layers.predicted)
+        for (let i = 0; i < data.predicted.length; i += 3)
+          add(data.predicted[i], data.predicted[i + 1], data.predicted[i + 2]);
     }
+    gridBounds = { min, max };
     center = min.map((v, i) => (v + max[i]) / 2);
     scale = 1;
     pan = [0, 0];
@@ -112,13 +127,16 @@ export function mountVTMap(
       screenBounds(x, y, data.scene.ceiling_m);
     }
     if (mode === "all") {
-      for (const source of data.truth) screenBounds(...source.xyz);
-      for (let i = 0; i < data.predicted.length; i += 3)
-        screenBounds(
-          data.predicted[i],
-          data.predicted[i + 1],
-          data.predicted[i + 2],
-        );
+      data.truth.forEach((source, i) => {
+        if (truthVisible(i)) screenBounds(...source.xyz);
+      });
+      if (layers.predicted)
+        for (let i = 0; i < data.predicted.length; i += 3)
+          screenBounds(
+            data.predicted[i],
+            data.predicted[i + 1],
+            data.predicted[i + 2],
+          );
     }
     scale = Math.min(
       (width - 70) / Math.max(bounds[2] - bounds[0], 1),
@@ -141,6 +159,49 @@ export function mountVTMap(
     ctx.lineWidth = lineWidth;
     ctx.stroke();
   }
+  function drawGrid() {
+    if (!layers.grid || !gridBounds) return "";
+    const { min, max } = gridBounds;
+    // World-aligned rear planes remain legible in 3D, top and side views.
+    // Nice metre intervals adapt to zoom, with bounded line counts for outliers.
+    const target = Math.max(
+      48 / scale,
+      ...max.map((v, i) => (v - min[i]) / 40),
+    );
+    const power = 10 ** Math.floor(Math.log10(target));
+    const step = [1, 2, 5, 10].find((v) => v * power >= target) * power;
+    const low = min.map((v) => Math.floor(v / step) * step - step);
+    const high = max.map((v) => Math.ceil(v / step) * step + step);
+    const depth = [
+      Math.cos(pitch) * Math.sin(yaw),
+      Math.cos(pitch) * Math.cos(yaw),
+      Math.sin(pitch),
+    ];
+    const rear = low.map((v, i) => (depth[i] >= 0 ? v : high[i]));
+    for (let normal = 0; normal < 3; normal++) {
+      if (Math.abs(depth[normal]) < 0.05) continue;
+      const axes = [0, 1, 2].filter((axis) => axis !== normal);
+      for (const along of axes) {
+        const across = axes.find((axis) => axis !== along);
+        const steps = Math.round((high[across] - low[across]) / step);
+        for (let i = 0; i <= steps; i++) {
+          const a = [...rear],
+            b = [...rear];
+          a[along] = low[along];
+          b[along] = high[along];
+          a[across] = b[across] = low[across] + i * step;
+          const zero = Math.abs(a[across]) < step * 1e-6;
+          line(
+            project(...a),
+            project(...b),
+            zero ? "#becdd6" : "#dfe6eb",
+            zero ? 1.1 : 0.8,
+          );
+        }
+      }
+    }
+    return ` · Grid ${step.toLocaleString("en-US", { maximumSignificantDigits: 3 })} m`;
+  }
   function draw() {
     frame = 0;
     const ratio = Math.min(devicePixelRatio || 1, 2);
@@ -149,6 +210,7 @@ export function mountVTMap(
     ctx.fillStyle = "#f8fafb";
     ctx.fillRect(0, 0, width, height);
     if (!data) return;
+    const gridLabel = drawGrid();
     const polygon = data.scene.polygon_xy;
     const floor = polygon.map(([x, y]) => project(x, y, 0)),
       ceiling = polygon.map(([x, y]) => project(x, y, data.scene.ceiling_m));
@@ -186,15 +248,19 @@ export function mountVTMap(
     }
     truthScreen = data.truth.map((source) => project(...source.xyz));
     if (layers.links && layers.truth && layers.predicted)
-      for (const [a, b] of data.matches)
+      for (const [a, b] of data.matches) {
+        if (!truthVisible(b)) continue;
         line(
           [predictedScreen[2 * a], predictedScreen[2 * a + 1]],
           truthScreen[b],
           "#765ca988",
           1.2,
         );
+      }
     if (layers.truth)
-      for (const [x, y] of truthScreen) {
+      for (let i = 0; i < truthScreen.length; i++) {
+        if (!truthVisible(i)) continue;
+        const [x, y] = truthScreen[i];
         ctx.beginPath();
         ctx.arc(x, y, 4.5, 0, 2 * Math.PI);
         ctx.strokeStyle = "#007f79";
@@ -233,7 +299,7 @@ export function mountVTMap(
     }
     const hidden = data.predicted.length / 3 - visible;
     $(".map-status").textContent =
-      `${count(visible)} of ${count(data.predicted.length / 3)} predictions in view${hidden ? " · Use Fit all to include off-screen predictions" : ""} · Coordinates in meters`;
+      `${count(visible)} of ${count(data.predicted.length / 3)} predictions in view${hidden ? " · Use Fit all to include off-screen predictions" : ""} · ${count(data.truth.filter((_, i) => truthVisible(i)).length)} of ${count(data.truth.length)} truth sources shown${gridLabel} · Coordinates in meters`;
   }
   function sourceInfo(kind, index) {
     if (kind === "truth") {
@@ -263,6 +329,7 @@ export function mountVTMap(
       }
     if (layers.truth)
       truthScreen.forEach((p, i) => {
+        if (!truthVisible(i)) return;
         const d = (x - p[0]) ** 2 + (y - p[1]) ** 2;
         if (d < distance) {
           distance = d;
@@ -398,6 +465,10 @@ export function mountVTMap(
     (input) =>
       (input.onchange = () => {
         layers[input.dataset.layer] = input.checked;
+        $('[data-layer="secondary"]').disabled = !layers.truth;
+        tooltip.hidden = true;
+        $(".map-point").textContent =
+          "Select a source to inspect its coordinates and reflection labels.";
         schedule();
       }),
   );
@@ -439,6 +510,12 @@ export function mountVTMap(
       );
       if (signal.aborted || disposed) return;
       data = result;
+      // A shared coordinate may have several paths; keep it if any is direct/first-order.
+      reflectionOrders = data.truth.map((source) =>
+        Math.min(
+          ...source.surface_sequences.map((sequence) => sequence.length),
+        ),
+      );
       predictedScreen = new Float32Array((data.predicted.length / 3) * 2);
       matchedPredicted = new Set(data.matches.map((m) => m[0]));
       matchedTruth = new Set(data.matches.map((m) => m[1]));
