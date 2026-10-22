@@ -2,7 +2,26 @@
 
 Local, reproducible NIST data generation and a modular delay-only localization
 pipeline. The planning document remains in the parent workspace at
-`../DATASET_PIPELINE_PLAN.md`. No remote repository is configured.
+`../DATASET_PIPELINE_PLAN.md` in the original workspace.
+
+**[Open the results explorer](https://alasleimi.github.io/indoor-vt-benchmark/)**
+or browse the [repository](https://github.com/alasleimi/indoor-vt-benchmark).
+The public viewer contains completed calibration presets, condition filters,
+code links for every method, and a detailed, provenance-labeled walkthrough of
+the Zayets–Steinbach 2018 SAPP adapter in its **Method** tab.
+
+Binary result columns and the calibration input archive use **Git LFS**:
+
+```sh
+git lfs install
+git clone https://github.com/alasleimi/indoor-vt-benchmark.git
+cd indoor-vt-benchmark
+git lfs pull
+```
+
+See [the published data description](published/README.md) for contents, hashes,
+precision and the input loader. The large original simulator archives and run
+caches remain preserved locally and are not part of ordinary Git history.
 
 The dataset contains four room families, two calibration and two test instances
 per family, two AP placements, two survey layers on a 0.5 m XY grid, and ten

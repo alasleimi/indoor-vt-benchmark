@@ -1,3 +1,5 @@
 * text=auto eol=lf
 # Preserve the vendored helper's original bytes and notice formatting.
 src/indoor_vt/matlab_compat/xmlreader.m -text -whitespace
+published/**/*.bin.gz filter=lfs diff=lfs merge=lfs -text
+published/**/*.zip filter=lfs diff=lfs merge=lfs -text

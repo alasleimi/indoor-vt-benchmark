@@ -456,6 +456,8 @@ def serve(explorer, assets, port):
         "/": ("index.html", "text/html"),
         "/app.js": ("app.js", "text/javascript"),
         "/style.css": ("style.css", "text/css"),
+        "/data-client.js": ("data-client.js", "text/javascript"),
+        "/method-catalog.json": ("method-catalog.json", "application/json"),
     }
 
     class Handler(BaseHTTPRequestHandler):

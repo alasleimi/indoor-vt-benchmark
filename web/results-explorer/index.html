@@ -8,8 +8,9 @@
       rel="icon"
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='10' fill='%230e7668'/%3E%3Cpath d='M10 27V13h20v14M10 20h20' fill='none' stroke='white' stroke-width='2'/%3E%3C/svg%3E"
     />
-    <link rel="stylesheet" href="/style.css" />
-    <script src="/app.js" defer></script>
+    <link rel="stylesheet" href="./style.css" />
+    <script src="./data-client.js" defer></script>
+    <script src="./app.js" defer></script>
   </head>
   <body>
     <a class="skip" href="#main">Skip to results</a>
@@ -235,6 +236,14 @@
           aria-selected="true"
         >
           Overview</button
+        ><button
+          role="tab"
+          id="tab-method"
+          aria-controls="detail-content"
+          data-tab="method"
+          aria-selected="false"
+        >
+          Method</button
         ><button
           role="tab"
           id="tab-parameters"

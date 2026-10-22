@@ -592,6 +592,150 @@ th:last-child {
   text-decoration: underline;
   text-underline-offset: 3px;
 }
+.method-name-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+.code-link {
+  color: #527970;
+  font-size: 9px;
+  white-space: nowrap;
+  text-decoration: none;
+}
+.code-link:hover {
+  text-decoration: underline;
+}
+.publication-links {
+  display: flex;
+  gap: 22px;
+  flex-wrap: wrap;
+  padding: 2px 2px 18px;
+  font-size: 11px;
+}
+.publication-links a,
+.source-links a,
+.paper-links a,
+.step-source {
+  color: var(--teal);
+  text-decoration: none;
+}
+.publication-links a:hover,
+.source-links a:hover,
+.paper-links a:hover,
+.step-source:hover {
+  text-decoration: underline;
+}
+.source-links {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0 16px;
+}
+.source-links a {
+  display: block;
+  padding: 10px 12px;
+  background: #f3f7f5;
+  border: 1px solid #e1ebe6;
+  border-radius: 6px;
+  font-size: 12px;
+}
+.source-links small {
+  display: block;
+  font-size: 10px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+  margin-top: 2px;
+}
+.paper-links {
+  line-height: 1.7;
+  font-size: 12px;
+  margin-bottom: 24px;
+}
+.method-section + .method-section {
+  border-top: 1px solid var(--line);
+  margin-top: 25px;
+  padding-top: 22px;
+}
+.origin-tag {
+  display: inline-block;
+  background: #edf3f6;
+  color: #506a79;
+  font-size: 9px;
+  font-weight: 650;
+  border-radius: 4px;
+  padding: 2px 6px;
+}
+.origin-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 6px 0 9px;
+}
+.origin-legend {
+  display: grid;
+  grid-template-columns: 115px 1fr;
+  gap: 9px;
+  font-size: 11px;
+}
+.origin-legend dd {
+  margin: 0;
+  color: var(--muted);
+}
+.parameter-list {
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 4px 12px;
+}
+.parameter-list > div {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  padding: 9px 0;
+  border-bottom: 1px solid #edf1f3;
+  gap: 2px 8px;
+}
+.parameter-list > div:last-child {
+  border: 0;
+}
+.parameter-list strong {
+  font-size: 11px;
+  font-weight: 550;
+}
+.parameter-list small {
+  grid-column: 1 / -1;
+  font-size: 10px;
+  color: var(--muted);
+}
+.algorithm-steps {
+  padding-left: 23px;
+  margin-top: 24px;
+}
+.algorithm-steps li {
+  padding: 0 0 21px 4px;
+  margin-bottom: 17px;
+  border-bottom: 1px solid var(--line);
+}
+.algorithm-steps li::marker {
+  color: var(--teal);
+  font-weight: 700;
+}
+.algorithm-steps h4 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.6;
+}
+.algorithm-steps p {
+  line-height: 1.85;
+}
+.step-source {
+  display: inline-block;
+  margin-top: 10px;
+  font-size: 10px;
+}
+.description-pending {
+  font-size: 11px;
+  color: var(--muted);
+}
 .method-meta {
   font-size: 10px;
   color: #7b8990;

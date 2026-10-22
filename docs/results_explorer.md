@@ -1,5 +1,28 @@
 # Local results explorer
 
+The same viewer is published at
+**https://alasleimi.github.io/indoor-vt-benchmark/**. GitHub Pages runs a static
+version: lossless metric columns are loaded on demand from the LFS-backed
+snapshot, verified and aggregated in a browser worker. Every method row links
+to its commit-pinned implementation. Its detail panel has a **Method** tab for
+code, papers and algorithmic descriptions; the first complete walkthrough is
+the Zayets–Steinbach 2018 reconstruction adapter, with paper/interpretation/
+our-SAPP/our-benchmark provenance labels on each step.
+
+To preview the published version after fetching LFS data:
+
+```powershell
+python scripts/build_pages.py
+python -m http.server 8766 --bind 127.0.0.1 --directory build/pages
+```
+
+The Pages workflow checks out LFS objects, verifies snapshot checksums and
+deploys only the static viewer and metric columns. The calibration input ZIP
+remains separately downloadable from the repository. Updating descriptions uses
+`python scripts/build_method_catalog.py`; refreshing data uses
+`python scripts/export_results_site.py --include-inputs` from the original
+workspace. No dataset generation is triggered by the Pages workflow.
+
 Run from the repository root, with the existing environment:
 
 ```powershell

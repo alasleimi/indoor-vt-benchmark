@@ -1,4 +1,5 @@
 "use strict";
+let methodCatalog;
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
 const esc = (s) =>
@@ -203,14 +204,7 @@ async function loadResults() {
   $("#export").disabled = true;
   $("#error").hidden = true;
   try {
-    const response = await fetch("/api/results?" + new URLSearchParams(state), {
-      signal: request.signal,
-    });
-    if (!response.ok)
-      throw Error(
-        "Could not read the selected results (HTTP " + response.status + ").",
-      );
-    const data = await response.json();
+    const data = await resultsRequest("results", state, request.signal);
     rows = data.rows;
     render();
     $("#results-panel").setAttribute("aria-busy", "false");
@@ -272,6 +266,66 @@ function variantLabel(row) {
   ]
     .filter(Boolean)
     .join(" · ");
+}
+function methodComponents(job) {
+  if (job.stage !== "pipeline")
+    return [{ key: `${job.stage}/${job.method}`, label: job.name }];
+  const [initial, reconstruction] = job.method.split("__");
+  return [
+    { key: "pipeline", label: "Pipeline composition" },
+    { key: `coarse/${initial}`, label: `Initial localization: ${job.name}` },
+    {
+      key: `vt/${reconstruction}`,
+      label: `VT reconstruction: ${job.reconstruction}`,
+    },
+    { key: "lea", label: "Final refinement: SMART-LEA" },
+  ];
+}
+function primarySource(job) {
+  return methodCatalog?.methods[methodComponents(job)[0].key]?.code[0];
+}
+function methodDescription(job) {
+  const components = methodComponents(job);
+  let html =
+    '<p class="detail-hint">Implementation links point to the exact code revision recorded by this catalog. Paper citations identify the underlying methods; the benchmark includes the adaptations described below.</p>';
+  for (const component of components) {
+    const entry = methodCatalog.methods[component.key];
+    if (!entry) continue;
+    html += `<section class="method-section"><h3>${esc(component.label)}</h3><div class="source-links">${entry.code.map((link) => `<a href="${esc(link.url)}" target="_blank" rel="noopener noreferrer">${esc(link.label)} ↗<small>${esc(link.path)}:${link.line}</small></a>`).join("")}</div>`;
+    if (entry.papers.length)
+      html += `<div class="paper-links">${entry.papers.map((paper) => `<a href="${esc(paper.url)}" target="_blank" rel="noopener noreferrer">Paper: ${esc(paper.title)} ↗</a>`).join("")}</div>`;
+    if (entry.steps.length) {
+      const parameters =
+        job.stage === "pipeline" ? job.parameters.vt : job.parameters;
+      const interpolate = (text) =>
+        text.replace(/\{\{(\w+)\}\}/g, (_, key) =>
+          String(parameters[key] ?? "not recorded"),
+        );
+      html += `<h3>${esc(entry.title)}</h3><p>${esc(entry.summary)}</p><h3>Inputs and separation of channels</h3><p>${esc(entry.inputs)}</p><h3>Provenance labels</h3><dl class="origin-legend">${Object.entries(
+        entry.legend,
+      )
+        .map(
+          ([label, description]) =>
+            `<dt><span class="origin-tag">${esc(label)}</span></dt><dd>${esc(description)}</dd>`,
+        )
+        .join(
+          "",
+        )}</dl><h3>Parameters for this result</h3><div class="parameter-list">${entry.parameters.map(([key, label, unit, origin]) => `<div><strong>${esc(label)}</strong><span>${esc(parameters[key])} ${esc(unit)}</span><small>${esc(origin)}</small></div>`).join("")}</div><ol class="algorithm-steps">${entry.steps
+        .map((step) => {
+          const source = entry.code.find(
+            (link) => link.symbol === step.code_symbol,
+          );
+          return `<li><h4>${esc(step.title)}</h4><div class="origin-tags">${step.tags.map((tag) => `<span class="origin-tag">${esc(tag)}</span>`).join("")}</div><p>${esc(interpolate(step.text))}</p>${source ? `<a class="step-source" href="${esc(source.url)}" target="_blank" rel="noopener noreferrer">Implementation: ${esc(source.symbol)} ↗</a>` : ""}</li>`;
+        })
+        .join(
+          "",
+        )}</ol><h3>Limitations and interpretation</h3><p>${esc(entry.limitations)}</p>`;
+    } else
+      html +=
+        '<p class="description-pending">A step-by-step walkthrough has not been written for this component yet. Its implementation links and exact parameters are available.</p>';
+    html += "</section>";
+  }
+  return html;
 }
 function render() {
   const vt = state.view === "vt",
@@ -368,7 +422,8 @@ function render() {
               : r.stage === "coarse"
                 ? "Initial position estimate"
                 : `${scope}${esc(r.merger ? "Survey source map" : "Published-method adapter")}`;
-          const method = `<td class="method-cell"><button class="method-button" data-id="${esc(r.id)}">${esc(r.name)}</button><div class="method-meta">${sub}</div></td>`;
+          const source = primarySource(r);
+          const method = `<td class="method-cell"><div class="method-name-row"><button class="method-button" data-id="${esc(r.id)}">${esc(r.name)}</button>${source ? `<a class="code-link" href="${esc(source.url)}" target="_blank" rel="noopener noreferrer" title="${esc(source.label)}: ${esc(source.path)}">Code ↗</a>` : ""}</div><div class="method-meta">${sub}</div></td>`;
           const number = vt
             ? `<td class="merger-cell">${esc(meta.mergers[r.merger] || "Method default")}</td><td class="metric-primary">${fmt(r.ospa)}<span class="mini-bar"><span style="width:${Math.min(100, r.ospa * 100)}%"></span></span></td><td>${fmt(r.f1 * 100, 2)}<span class="unit">%</span></td><td title="Mean predicted source count per selected map">${fmt(r.predicted, 1)}</td><td title="Mean true source count per selected map">${fmt(r.truth, 1)}</td>`
             : `<td class="merger-cell"><span class="stage-badge ${r.stage === "coarse" ? "raw" : ""}">${r.stage === "coarse" ? "Raw" : "+ SMART-LEA"}</span></td><td class="metric-primary">${fmt(r.mean)}<span class="mini-bar"><span style="width:${(100 * r.mean) / max}%"></span></span></td><td title="Square root of the mean squared 3D position error">${fmt(r.rmse)}</td><td>${fmt(r.median)}</td><td>${fmt(r.p90)}</td><td title="100 × (initial mean − final mean) / initial mean; positive means improvement" class="${r.improvement >= 0 ? "positive" : "negative"}">${r.stage === "coarse" ? "—" : r.improvement == null ? "—" : `${r.improvement > 0 ? "+" : ""}${fmt(r.improvement, 2)}%`}</td>`;
@@ -417,12 +472,11 @@ async function openDetail(id) {
   $("#detail-content").textContent = "Reading exact case statistics…";
   $("#close-detail").focus();
   try {
-    const response = await fetch(
-      "/api/detail?" + new URLSearchParams({ ...state, id }),
-      { signal: detailRequest.signal },
+    detail = await resultsRequest(
+      "detail",
+      { ...state, id },
+      detailRequest.signal,
     );
-    if (!response.ok) throw Error("Unable to load this result.");
-    detail = await response.json();
     $("#detail-title").textContent = detail.job.name;
     $("#detail-subtitle").textContent = [
       detail.job.track === "receiver" ? "SAPP receiver" : "Direct NIST",
@@ -467,6 +521,10 @@ function renderDetail() {
   const j = detail.job,
     m = detail.metrics,
     vt = j.stage === "vt";
+  if (detailTab === "method") {
+    $("#detail-content").innerHTML = methodDescription(j);
+    return;
+  }
   if (detailTab === "parameters") {
     $("#detail-content").innerHTML =
       `<div class="detail-hint">Exact preset parameters recorded with this result. These settings have not been selected by a completed hyperparameter search.</div><pre>${esc(JSON.stringify(j.parameters, null, 2))}</pre>`;
@@ -591,16 +649,25 @@ function exportCSV() {
 }
 async function init() {
   try {
-    const response = await fetch("/api/meta");
-    if (!response.ok) throw Error("Could not load the result index.");
-    meta = await response.json();
+    [meta, methodCatalog] = await Promise.all([
+      resultsRequest("meta"),
+      fetch("./method-catalog.json").then((response) => {
+        if (!response.ok)
+          throw Error("Could not load implementation references.");
+        return response.json();
+      }),
+    ]);
     $("#count-vt").textContent = meta.counts.vt;
     $("#count-raw").textContent = meta.counts.coarse;
     $("#count-all").textContent = meta.counts.coarse + meta.counts.pipeline;
     $("#run-state").textContent =
-      `${meta.counts.vt + meta.counts.coarse + meta.counts.pipeline} presets complete · ${meta.status.running?.length ? "workers active" : "workers stopped"}`;
+      `${meta.counts.vt + meta.counts.coarse + meta.counts.pipeline} presets complete · ${meta.mode === "static" ? "published snapshot" : meta.status.running?.length ? "workers active" : "workers stopped"}`;
     $("#source-note").textContent =
       `Source: ${meta.revision} preset receipts · ${meta.counts.vt + meta.counts.coarse + meta.counts.pipeline} verified artifacts`;
+    const footer = document.createElement("div");
+    footer.className = "publication-links";
+    footer.innerHTML = `<a href="${esc(methodCatalog.repository)}" target="_blank" rel="noopener noreferrer">Repository & code ↗</a>${meta.inputs ? `<a href="${esc(methodCatalog.repository)}/blob/main/published/${esc(meta.revision)}/${esc(meta.inputs.file)}" target="_blank" rel="noopener noreferrer">Calibration input data · ${(meta.inputs.bytes / 1024 ** 2).toFixed(1)} MiB (Git LFS) ↗</a>` : ""}`;
+    $("main").append(footer);
     options($("#family"), [...new Set(meta.rooms.map((r) => r.family))], (f) =>
       f === "rectangle" ? "Rectangle" : f,
     );
