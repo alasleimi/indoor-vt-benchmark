@@ -4,14 +4,19 @@ This is a local-only repository. The original plan remains at
 `../../DATASET_PIPELINE_PLAN.md`; it was not moved into this repository.
 The publication namespace remains unused.
 
-## Prepared execution revision v6; campaign stopped
+## Execution revision v6; only remaining presets authorized
 
-The user stopped the campaign on 2026-10-22 for memory investigation.
-**108 of 110 initial presets are complete; no scientific worker is running.**
-Revision v6 is prepared for an explicit restart, preserving all completed work.
-It replaces large mapped distance files with bounded row caching, streams audit
-encoding, and uses one fresh worker per task with enforced memory limits.
-See the [memory fix](memory_safety.md) for measurements and exact-output checks.
+The user stopped the campaign on 2026-10-22 for memory investigation, then
+explicitly authorized only the two remaining initial presets. At that restart,
+108 of 110 presets were complete. The receiver greedy-mean preset has completed;
+the direct agglomerative preset is running. The scoped wrapper stops automatically
+after both, without starting main hyperparameter searches. Current status is in
+`runs/development/revisions/v6/status.json`; its operational receipt is
+`presets_only_execution.json`. The frozen scientific queue is unchanged.
+
+Revision v6 replaces large mapped distance files with bounded row caching,
+streams audit encoding, and uses one fresh worker per task with enforced memory
+limits. See the [memory fix](memory_safety.md) for measurements and exact-output checks.
 
 The [external plan](../../DATASET_PIPELINE_PLAN.md) now runs initial
 published/disclosed presets before deeper main calibration. Greedy median and
@@ -116,7 +121,8 @@ computer is shut down or asleep.
 
 ## Calibration and evaluation campaign
 
-Full scientific calibration started on 2026-10-21 and is currently stopped.
+Full scientific calibration started on 2026-10-21. Only the two-preset run is
+authorized at present; main searches remain paused.
 Revision v6 retains one numerical-library thread and one concurrent worker,
 but replaces the worker after every scheduling turn. Windows worker limits
 are 2 GiB resident and 4 GiB private memory. Verified disk caches and all
