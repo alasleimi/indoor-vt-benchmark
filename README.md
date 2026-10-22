@@ -60,11 +60,11 @@ reused across pipeline partners. LEA settings belong to the named pairing.
 Every trial uses the complete declared calibration set with uniform averaging.
 These full campaigns can take substantially longer than dataset generation.
 
-The user authorized **only the two remaining v6 presets** after the memory fix.
-`uv run python scripts/run_remaining_presets.py` runs those presets and stops
-automatically before main searches. Original completed results remain preserved.
-See `runs/development/revisions/v6/status.json` for current progress.
-A full campaign restart requires a separate request.
+All **110 initial presets are complete** as of 2026-10-22 08:32 Europe/Berlin.
+The scoped v6 run finished without errors and stopped before main searches.
+`uv run python scripts/run_remaining_presets.py` is the recorded two-preset wrapper;
+its execution receipt is `runs/development/revisions/v6/presets_only_execution.json`.
+Main hyperparameter searches remain paused pending a separate restart request.
 It uses fresh workers per task, enforced memory quotas, bounded complete-link
 row caching and streamed audit encoding. The same scientific queue and search
 budgets remain. Main calibration and freezes precede shadow work; all selection

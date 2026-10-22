@@ -4,13 +4,15 @@ This is a local-only repository. The original plan remains at
 `../../DATASET_PIPELINE_PLAN.md`; it was not moved into this repository.
 The publication namespace remains unused.
 
-## Execution revision v6; only remaining presets authorized
+## Execution revision v6; all initial presets complete
 
 The user stopped the campaign on 2026-10-22 for memory investigation, then
 explicitly authorized only the two remaining initial presets. At that restart,
-108 of 110 presets were complete. The receiver greedy-mean preset has completed;
-the direct agglomerative preset is running. The scoped wrapper stops automatically
-after both, without starting main hyperparameter searches. Current status is in
+108 of 110 presets were complete. Both remaining presets finished successfully
+by 2026-10-22 08:32 Europe/Berlin, bringing the total to **110/110**. The scoped
+wrapper stopped automatically without starting any main hyperparameter search.
+Peak resident memory was 324 MB for receiver greedy mean and 1.132 GB for direct
+agglomerative. Current status is in
 `runs/development/revisions/v6/status.json`; its operational receipt is
 `presets_only_execution.json`. The frozen scientific queue is unchanged.
 
@@ -121,8 +123,8 @@ computer is shut down or asleep.
 
 ## Calibration and evaluation campaign
 
-Full scientific calibration started on 2026-10-21. Only the two-preset run is
-authorized at present; main searches remain paused.
+Full scientific calibration started on 2026-10-21. The authorized two-preset run
+has finished; all main searches remain paused.
 Revision v6 retains one numerical-library thread and one concurrent worker,
 but replaces the worker after every scheduling turn. Windows worker limits
 are 2 GiB resident and 4 GiB private memory. Verified disk caches and all
