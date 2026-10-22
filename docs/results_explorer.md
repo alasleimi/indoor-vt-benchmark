@@ -6,8 +6,11 @@ version: lossless metric columns are loaded on demand from the LFS-backed
 snapshot, verified and aggregated in a browser worker. Every method row links
 to its commit-pinned implementation. Its detail panel has a **Method** tab for
 code, papers and algorithmic descriptions; the first complete walkthrough is
-the Zayets–Steinbach 2018 reconstruction adapter, with paper/interpretation/
-our-SAPP/our-benchmark provenance labels on each step.
+the Zayets–Steinbach 2018 reconstruction implementation. Its labels distinguish
+**Paper** (specified operations), **Ambiguity resolved** (implementation choices
+left open by the paper), and **Added** (extra operations absent from the paper’s
+procedure). Parameter changes are identified separately. Mixed steps explain
+which parts belong to each category; implementation lineage is mentioned once.
 
 To preview the published version after fetching LFS data:
 

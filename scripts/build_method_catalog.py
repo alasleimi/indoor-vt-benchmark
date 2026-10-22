@@ -115,78 +115,77 @@ def build(root=ROOT):
             code("fitting", "fit_source", "Signed 3D range fitting"),
         ]
     )
-    note["title"] = "Zayets–Steinbach 2018: our SAPP reconstruction adapter"
+    note["title"] = "Zayets–Steinbach 2018: reconstruction implementation"
     note["summary"] = (
-        "This entry uses the 2018 paper’s delay-cluster matching to propose sources, followed by the source-bank selection from our SAPP ablation. SAPP is our work. This benchmark extends that adapter to signed 3D fitting and removes its 20-source cap. It does not run the paper’s complete fingerprint synthesis/localization pipeline."
+        "The paper publishes a fingerprint interpolation algorithm, with VT fitting as an intermediate step. This implementation reuses its clustering, matching and fitting stages to build a persistent source map. The labels below distinguish published operations, choices that resolve an incomplete specification, and additional operations. Parameter changes are stated separately. The added survey-centred discovery and map-selection stages originated in our SAPP ablation."
     )
     note["inputs"] = (
         "For each physical AP channel separately: N known survey coordinates sᵢ ∈ ℝ³ and one sorted range list rᵢ per coordinate. Ranges are delay × propagation speed. Empty lists are retained. No wall count, floor plan, AP/VT ground-truth coordinates, path identities, angles or query labels are passed to the estimator. A and B are fitted independently; A+B uses their two labeled source banks."
     )
     note["legend"] = {
-        "Paper 2018": "Stated in the original paper (Section III, Algorithms 1–4).",
-        "Our interpretation": "A concrete implementation choice for a step the paper does not completely specify.",
-        "Our SAPP": "Source-selection machinery from our SAPP source-estimator ablation.",
-        "Our benchmark": "Changes or explicit choices in this signed-3D benchmark.",
+        "Paper": "An operation specified by the 2018 paper; the relevant algorithm or section is identified below.",
+        "Ambiguity resolved": "The paper includes the operation but leaves an implementation choice unspecified. We state the choice made here.",
+        "Added": "An extra operation absent from the paper’s procedure, introduced in this reconstruction implementation.",
     }
     note["steps"] = [
         {
             "title": "Construct one neighborhood around every surveyed coordinate",
-            "tags": ["Our SAPP", "Our benchmark"],
-            "text": "For each survey index i = 0,…,N−1, collect Sᵢ = {j : ‖sⱼ−sᵢ‖₂ ≤ R}, using 3D Euclidean distance and R = {{neighborhood_radius_m}} m. Include i itself. Both height layers may contribute. Sort each neighborhood’s indices, remove identical index sets, then process the remaining neighborhoods in lexicographic order. Distinct neighborhoods can overlap. The 2018 interpolation procedure selects references around a target interpolation location; centering these neighborhoods on every measured survey coordinate is our SAPP source-discovery adaptation.",
+            "tags": ["Paper", "Added"],
+            "text": "For each survey index i = 0,…,N−1, collect Sᵢ = {j : ‖sⱼ−sᵢ‖₂ ≤ R}, using 3D Euclidean distance and R = {{neighborhood_radius_m}} m. Include i itself. Both height layers may contribute. Sort each neighborhood’s indices, remove identical index sets, then process the remaining neighborhoods in lexicographic order. Distinct neighborhoods can overlap. Paper (Section IV-A): select references within a radius of a target interpolation location. Added: centre the neighborhoods on every surveyed coordinate, deduplicate the index sets, and use them to discover candidates for one survey-wide source map.",
             "code_symbol": "ConsensusReconstructor",
         },
         {
             "title": "Split every range list in that neighborhood into consecutive clusters",
-            "tags": ["Paper 2018", "Our SAPP"],
-            "text": "For each j ∈ Sᵢ with a nonempty sorted range list, start a cluster at its first peak. Append the next peak only if its gap from the previous peak is strictly less than g = {{cluster_gap_m}} m; otherwise start a new cluster. Thus a gap equal to g splits the cluster. This is consecutive-gap clustering (Algorithm 3), not a maximum cluster-width constraint. Several different VTs can contribute peaks to one cluster. The 0.6 m preset comes from our SAPP calibrated adapter, not the paper’s 0.10 m interpolation setting.",
+            "tags": ["Paper"],
+            "text": "For each j ∈ Sᵢ with a nonempty sorted range list, start a cluster at its first peak. Append the next peak only if its gap from the previous peak is strictly less than g = {{cluster_gap_m}} m; otherwise start a new cluster. Thus a gap equal to g splits the cluster. This is the consecutive-gap clustering specified by Algorithm 3; a cluster’s total width can exceed g. Several different VTs can contribute peaks to one cluster. Parameter change: the recorded gap is {{cluster_gap_m}} m; the paper’s interpolation experiments use 0.10 m. The clustering operation itself is from the paper.",
             "code_symbol": "matched_tracks",
         },
         {
             "title": "Calculate a cost for every pair of clusters from different references",
-            "tags": ["Paper 2018"],
+            "tags": ["Paper"],
             "text": "Represent cluster C by f(C) = (its first range, its number of peaks, its last minus first range). For each pair C,D belonging to different survey indices in this neighborhood, compute cost(C,D) = 0.5|first(C)−first(D)| + 0.5|count(C)−count(D)| + 0.5|span(C)−span(D)|. This is Algorithm 4 with α = 0.5, fixed in this implementation. Keep pairs with cost ≤ {{group_threshold}}. The cost combines a count and range features; its threshold is not a spatial distance.",
             "code_symbol": "matched_tracks",
         },
         {
             "title": "Greedily group compatible clusters without duplicate survey owners",
-            "tags": ["Paper 2018", "Our interpretation"],
-            "text": "Initially each cluster is its own group. Sort the retained pairs by (cost, first cluster index, second cluster index), from smallest to largest. For each pair, merge its two current groups only if the groups are distinct and their sets of survey indices are disjoint. Therefore a group contains at most one cluster per survey position. A merge is driven by the processed pair; all cross-pairs between the two groups need not pass the threshold. The paper states low-cost grouping and the owner constraint; this ordered union procedure and deterministic tie handling are our interpretation.",
+            "tags": ["Paper", "Ambiguity resolved"],
+            "text": "Initially each cluster is its own group. Sort the retained pairs by (cost, first cluster index, second cluster index), from smallest to largest. For each pair, merge its two current groups only if the groups are distinct and their sets of survey indices are disjoint. Therefore a group contains at most one cluster per survey position. A merge is driven by the processed pair; all cross-pairs between the two groups need not pass the threshold. Paper (Algorithm 4 and Section III-D): prefer low-cost matches below the threshold and allow at most one cluster per fingerprint in a group. Ambiguity resolved: the paper does not give a complete group-construction procedure. We choose this ordered union procedure, including its merge rule and deterministic tie handling.",
             "code_symbol": "matched_tracks",
         },
         {
             "title": "Turn each cluster group into individual peak tracks",
-            "tags": ["Paper 2018", "Our interpretation"],
-            "text": "Let L be the largest cluster size in the group. Compute an L-element target by averaging, element by element, all clusters of length L. A length-L cluster contributes its first peak to slot 0, second peak to slot 1, and so on. For each shorter cluster, solve a minimum-total-absolute-range-difference assignment to distinct target slots with linear_sum_assignment; some slots remain empty. Each slot is a track of (survey index, peak index) pairs. Positional matching and comparison to the mean full-sized cluster follow Section III-D; the exact one-to-one assignment solver is our interpretation.",
+            "tags": ["Paper", "Ambiguity resolved"],
+            "text": "Let L be the largest cluster size in the group. Compute an L-element target by averaging, element by element, all clusters of length L. A length-L cluster contributes its first peak to slot 0, second peak to slot 1, and so on. For each shorter cluster, solve a minimum-total-absolute-range-difference assignment to distinct target slots with linear_sum_assignment; some slots remain empty. Each slot is a track of (survey index, peak index) pairs. Paper (Section III-D): match equal-sized clusters by position and match smaller clusters to the mean full-sized cluster. Ambiguity resolved: the paper does not specify the latter assignment procedure. We choose the absolute-difference objective and one-to-one assignment solver described here.",
             "code_symbol": "matched_tracks",
         },
         {
             "title": "Deduplicate tracks and fit signed 3D candidate positions",
-            "tags": ["Paper 2018", "Our benchmark"],
-            "text": "Keep tracks containing at least four reference owners. Translate neighborhood-local indices to global survey indices, deduplicate identical ordered membership tuples across neighborhoods, and process them in sorted order. Reject a track unless its centered survey-coordinate matrix has rank 3. Fit a candidate v by minimizing Σⱼ(‖v−sⱼ‖₂−rⱼ)², initialized by linearized multilateration and solved with unweighted Levenberg–Marquardt (at most 100 function evaluations). Reject failed or nonfinite solutions. There are no room bounds or positive-height constraints. The paper uses trilateration/nonlinear least squares; our benchmark specifies this signed-3D solver, the four-reference/rank checks and rejection rules. No mean-range fallback produces a VT coordinate.",
+            "tags": ["Paper", "Ambiguity resolved", "Added"],
+            "text": "Keep tracks containing at least four reference owners. Translate neighborhood-local indices to global survey indices, deduplicate identical ordered membership tuples across neighborhoods, and process them in sorted order. Reject a track unless its centered survey-coordinate matrix has rank 3. Fit a candidate v by minimizing Σⱼ(‖v−sⱼ‖₂−rⱼ)², initialized by linearized multilateration and solved with unweighted Levenberg–Marquardt (at most 100 function evaluations). Reject failed or nonfinite solutions. There are no room bounds or positive-height constraints. Paper (Algorithm 1 and Section III-A): estimate VT coordinates using trilateration/nonlinear least squares; the paper already discusses 3D geometry and four-reference identifiability in Theorem 1. Ambiguity resolved: choose the numerical initializer, solver configuration and convergence checks given here. Added: cross-neighborhood track deduplication and explicit four-owner/rank-3 eligibility checks for this source map. The paper’s mean-range fallback produces an interpolated delay when fewer than three components are available; this implementation returns no source for an ineligible track.",
             "code_symbol": "fit_source",
         },
         {
             "title": "Score each candidate against all currently available survey peaks",
-            "tags": ["Our SAPP"],
+            "tags": ["Added"],
             "text": "Initialize available peaks to all N survey range lists, not only the neighborhood that generated a candidate. For each active candidate v, predict dᵢ(v) = ‖v−sᵢ‖₂. Set eᵢ(v) = min over available peaks k of |dᵢ(v)−rᵢₖ| (infinity for an empty list). With σ = {{inlier_scale_m}} m, support H(v) counts survey indices whose eᵢ ≤ σ. Score(v) = H(v) + Σᵢ exp[−0.5(eᵢ/σ)²]/(N+1). The fractional term is less than one, so an extra supporting reference always outweighs it; it breaks equal-support comparisons using residual agreement.",
             "code_symbol": "score",
         },
         {
             "title": "Select the best supported candidate and reject duplicate range surfaces",
-            "tags": ["Our SAPP"],
-            "text": "Set minimum support M = max(5, ceil({{support_fraction}} × N)); N includes references with empty range lists. Repeatedly choose the active candidate with the largest (score, support), using the first candidate in deterministic order for exact ties. Stop if its support is below M. Mark that candidate inactive. Reject it if its predicted distance vector differs from an already accepted source by less than δ = {{surface_separation_m}} m RMS across all N references. This comparison is between predicted range surfaces, not Euclidean distance between source coordinates. This adapter does not refit the candidate after consensus scoring; the robust-refit branch in the same file belongs to RANSAC only.",
+            "tags": ["Added"],
+            "text": "Set minimum support M = max(5, ceil({{support_fraction}} × N)); N includes references with empty range lists. Repeatedly choose the active candidate with the largest (score, support), using the first candidate in deterministic order for exact ties. Stop if its support is below M. Mark that candidate inactive. Reject it if its predicted distance vector differs from an already accepted source by less than δ = {{surface_separation_m}} m RMS across all N references. This comparison is between predicted range surfaces, not Euclidean distance between source coordinates. Selected candidates keep their fitted coordinates; no consensus refitting is performed.",
             "code_symbol": "ConsensusReconstructor",
         },
         {
             "title": "Consume supporting peaks, suppress duplicate proposals, and rescore",
-            "tags": ["Our SAPP"],
+            "tags": ["Added"],
             "text": "For an accepted candidate, at every supporting reference remove exactly its nearest currently available peak (set that slot to infinity). Other peaks stay available. Mark every candidate whose predicted range surface is within δ RMS of the accepted surface inactive. Recompute scores of the remaining active candidates using the remaining peaks and repeat. Peak removal means evidence already assigned to one accepted source cannot support another later source.",
             "code_symbol": "ConsensusReconstructor",
         },
         {
             "title": "Return the source bank when remaining evidence is insufficient",
-            "tags": ["Our SAPP", "Our benchmark"],
-            "text": "Stop when no active candidate remains or the best candidate fails minimum support. Return the accepted signed (x,y,z) coordinates for this AP channel. Our SAPP ablation retained at most 20 sources; this benchmark removes that cap. No true source count is supplied. The output count is controlled by candidate availability, consensus support, evidence consumption and duplicate suppression.",
+            "tags": ["Added"],
+            "text": "Stop when no active candidate remains or the best candidate fails minimum support. Return the accepted signed (x,y,z) coordinates for this AP channel. This implementation has no fixed output-count cap and receives no true source count. The output count is controlled by candidate availability, consensus support, evidence consumption and duplicate suppression. This stopping rule belongs to the added source-map selection stage; the paper’s procedure instead produces interpolated fingerprint components at a target location.",
             "code_symbol": "ConsensusReconstructor",
         },
     ]
@@ -195,18 +194,33 @@ def build(root=ROOT):
             "neighborhood_radius_m",
             "Neighborhood radius R",
             "m",
-            "Our SAPP preset; paper uses a 1 m interpolation neighborhood",
+            "Paper uses a 1 m interpolation neighborhood; applied at survey coordinates here",
         ],
-        ["cluster_gap_m", "Consecutive range gap g", "m", "Our SAPP calibrated gap"],
-        ["group_threshold", "Cluster-pair cost threshold", "", "Recorded adapter preset"],
-        ["inlier_scale_m", "Consensus tolerance σ", "m", "Our SAPP"],
+        [
+            "cluster_gap_m",
+            "Consecutive range gap g",
+            "m",
+            "Changed parameter; paper’s interpolation setting is 0.10 m",
+        ],
+        [
+            "group_threshold",
+            "Cluster-pair cost threshold",
+            "",
+            "Paper’s cluster-matching threshold; recorded preset shown",
+        ],
+        ["inlier_scale_m", "Consensus tolerance σ", "m", "Added: survey-wide consensus"],
         [
             "support_fraction",
             "Minimum support fraction",
             "",
-            "Our SAPP (plus an absolute floor of five)",
+            "Added: minimum support, with an absolute floor of five",
         ],
-        ["surface_separation_m", "Range-surface RMS separation δ", "m", "Our SAPP"],
+        [
+            "surface_separation_m",
+            "Range-surface RMS separation δ",
+            "m",
+            "Added: duplicate-source suppression",
+        ],
     ]
     note["limitations"] = (
         "Fixed slot ordering can misassociate crossing paths. Gap thresholds can split or join clusters when noise changes. A 3D neighborhood must span enough noncoplanar references. Global support filtering can reject sources visible only in a small area. The current results are initial calibration presets; main hyperparameter search is unfinished. The trials and retained_per_batch fields belong to RANSAC and do not affect this adapter; batch only partitions its scoring work."
