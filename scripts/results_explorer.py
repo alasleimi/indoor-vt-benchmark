@@ -457,8 +457,15 @@ def serve(explorer, assets, port):
         "/app.js": ("app.js", "text/javascript"),
         "/style.css": ("style.css", "text/css"),
         "/data-client.js": ("data-client.js", "text/javascript"),
+        "/static-worker.js": ("static-worker.js", "text/javascript"),
+        "/vt-map.js": ("vt-map.js", "text/javascript"),
         "/method-catalog.json": ("method-catalog.json", "application/json"),
     }
+    snapshot = assets.parents[1] / "published/v6"
+    manifest = snapshot / "manifest.json"
+    published_files = (
+        {record["file"] for record in read_json(manifest)["files"]} if manifest.exists() else set()
+    )
 
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
@@ -467,6 +474,15 @@ def serve(explorer, assets, port):
                 if parsed.path in routes:
                     name, mime = routes[parsed.path]
                     payload = (assets / name).read_bytes()
+                elif parsed.path.lstrip("/") in published_files:
+                    name = parsed.path.lstrip("/")
+                    source = (snapshot / name).resolve()
+                    if not source.is_relative_to(snapshot.resolve()):
+                        raise ValueError("Invalid published asset path")
+                    payload = source.read_bytes()
+                    mime = (
+                        "application/json" if name.endswith(".json") else "application/octet-stream"
+                    )
                 elif parsed.path in ("/api/meta", "/api/results", "/api/detail"):
                     filters = {k: v[-1] for k, v in parse_qs(parsed.query).items()}
                     value = (

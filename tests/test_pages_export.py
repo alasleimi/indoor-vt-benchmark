@@ -47,6 +47,7 @@ def test_pages_build_verifies_data_and_keeps_archive_out_of_site(tmp_path, monke
         "app.js",
         "data-client.js",
         "static-worker.js",
+        "vt-map.js",
         "method-catalog.json",
     ):
         (assets / name).write_text('<html lang="en">')
@@ -79,3 +80,17 @@ def test_every_catalog_link_points_to_its_named_definition():
             ), link
             assert link["url"].startswith("https://github.com/alasleimi/indoor-vt-benchmark/blob/")
     assert len(catalog["methods"]["vt/zayets2018"]["steps"]) == 10
+
+
+def test_bundle_slices_are_lossless_and_reject_corrupt_payloads(tmp_path, monkeypatch):
+    monkeypatch.syspath_prepend(str(ROOT / "scripts"))
+    assets = importlib.import_module("build_explorer_assets")
+    values = np.array([0.0, -0.0, np.nextafter(1.0, 2.0)], dtype="<f8")
+    payload = b"12345678" + values.tobytes() + b"tail"
+    descriptor = assets.blob(tmp_path, payload)
+    descriptor.update(byte_offset=8, byte_length=values.nbytes)
+    assert assets.column_bytes(tmp_path, descriptor) == values.tobytes()
+    assert assets.blob(tmp_path, payload)["file"] == descriptor["file"]
+    (tmp_path / descriptor["file"]).write_bytes(b"invalid data")
+    with pytest.raises(ValueError, match="checksum mismatch"):
+        assets.column_bytes(tmp_path, descriptor)

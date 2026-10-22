@@ -212,7 +212,7 @@ def export(root=ROOT, revision="v6", include_inputs=False):
         if p.is_file() and p.name != "manifest.json" and ".tmp" not in p.name
     ]
     total = sum(f["bytes"] for f in files)
-    if total > 180 * 1024**2:
+    if total > 512 * 1024**2:
         raise ValueError(f"Publication budget exceeded: {total / 1024**2:.1f} MiB")
     write_json(
         output / "manifest.json",
@@ -226,6 +226,9 @@ def export(root=ROOT, revision="v6", include_inputs=False):
         },
     )
     print(f"Publication snapshot: {total / 1024**2:.2f} MiB, {len(files)} files", flush=True)
+    from build_explorer_assets import build as build_explorer_assets
+
+    build_explorer_assets(root)
     return output
 
 

@@ -7,7 +7,7 @@
     serial = 0;
   const pending = new Map();
   window.resultsRequest = async (endpoint, filters = {}, signal) => {
-    if (!isStatic) {
+    if (!isStatic && endpoint !== "map") {
       const response = await fetch(
         `api/${endpoint}?${new URLSearchParams(filters)}`,
         { signal },
@@ -45,6 +45,7 @@
       const id = ++serial;
       const abort = () => {
         pending.delete(id);
+        worker?.postMessage({ id, cancel: true });
         reject(new DOMException("Aborted", "AbortError"));
       };
       if (signal?.aborted) {

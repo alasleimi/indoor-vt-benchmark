@@ -1,5 +1,7 @@
 "use strict";
 let methodCatalog;
+let destroyMap = null,
+  mapMountVersion = 0;
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
 const esc = (s) =>
@@ -460,6 +462,9 @@ function toast(message) {
   setTimeout(() => ($("#toast").hidden = true), 2500);
 }
 function closeDetail() {
+  destroyMap?.();
+  destroyMap = null;
+  mapMountVersion++;
   detailRequest?.abort();
   if (!$("#drawer").hidden) {
     $("#drawer").hidden = true;
@@ -469,6 +474,10 @@ function closeDetail() {
   }
 }
 async function openDetail(id) {
+  destroyMap?.();
+  destroyMap = null;
+  mapMountVersion++;
+  $("#drawer").classList.remove("map-open");
   lastFocus = document.activeElement;
   detail = null;
   detailTab = "overview";
@@ -523,6 +532,11 @@ function detailMetric(label, value) {
 }
 function renderDetail() {
   if (!detail) return;
+  destroyMap?.();
+  destroyMap = null;
+  const mountVersion = ++mapMountVersion;
+  $("#tab-map").hidden = detail.job.stage !== "vt";
+  $("#drawer").classList.toggle("map-open", detailTab === "map");
   $$("[data-tab]").forEach((b) => {
     b.setAttribute("aria-selected", b.dataset.tab === detailTab);
     b.tabIndex = b.dataset.tab === detailTab ? 0 : -1;
@@ -531,6 +545,25 @@ function renderDetail() {
   const j = detail.job,
     m = detail.metrics,
     vt = j.stage === "vt";
+  if (detailTab === "map" && vt) {
+    $("#detail-content").textContent = "Opening 3D source map…";
+    import("./vt-map.js")
+      .then(({ mountVTMap }) => {
+        if (mountVersion !== mapMountVersion || $("#drawer").hidden) return;
+        destroyMap = mountVTMap($("#detail-content"), {
+          job: j,
+          meta,
+          filters: { ...state },
+          request: resultsRequest,
+          roomLabel,
+        });
+      })
+      .catch((error) => {
+        if (mountVersion === mapMountVersion)
+          $("#detail-content").textContent = error.message;
+      });
+    return;
+  }
   if (detailTab === "method") {
     $("#detail-content").innerHTML = methodDescription(j);
     return;
@@ -756,7 +789,7 @@ $$("[data-tab]").forEach(
 $(".detail-tabs").onkeydown = (e) => {
   if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
   e.preventDefault();
-  const tabs = $$("[data-tab]"),
+  const tabs = $$("[data-tab]").filter((tab) => !tab.hidden),
     i = tabs.indexOf(document.activeElement),
     next =
       e.key === "Home"

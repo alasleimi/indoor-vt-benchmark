@@ -23,6 +23,26 @@ condition columns are row-major: room index, AP subset index (`A`, `B`, `A+B`),
 index into the track's sorted noise levels, and layout index plus one (zero
 for VT survey-map cases). Metric column length is the number of cases.
 
+The `indoor-vt.pages.v2` index also references `v6/bundles/*.bin.gz`:
+
+- Unfiltered tables use the exact stored metrics immediately; detail summaries
+  and CDFs are loaded separately, without reading query-error arrays.
+- Filtered VT statistics use one packed binary file per track. Descriptors
+  include byte offsets and lengths for typed-array views into shared buffers.
+- Room/family localization filters load only the relevant room bundles, which
+  share identical columns across methods. Broader filters use the original
+  columns. All medians and P90s still use the complete selected error values.
+- Scene metadata and map indices are loaded only for the **3D map** tab.
+  Each reconstructed single-AP map has a separate lossless float64 XYZ payload.
+  Identical maps share payloads, and A+B references the two single-AP maps.
+  The recorded 0.5 m F1 match indices and original truth labels are preserved.
+
+The worker processes one request at a time, shares compact selection indices,
+cancels superseded work, and bounds its binary cache to 16 MiB and selection
+cache to 4 MiB. Those limits exclude browser overhead, temporary buffers and
+the currently displayed map. Coordinate arrays are transferred to the UI
+without an additional copy. No rendering loop runs while the map is idle.
+
 `v6/calibration-inputs.zip` includes all 2,288 active calibration delay files:
 8 rooms × 2 APs × 11 acquisitions (survey and 10 query layouts) × 13 noise/track
 conditions. The NPZ files are copied byte-for-byte after checking their source
@@ -55,4 +75,6 @@ The local source-data inventory and Git bundle taken before publication live in
 
 This command writes only `published/v6/` and the derived explorer index. Keep
 the original acquisitions and audit history. Never force-add `data/` or `runs/`
-to Git. LFS storage for this snapshot is approximately 73 MiB, not gigabytes.
+to Git. The complete snapshot, including the new coordinate payloads and room
+bundles, is approximately 201 MiB in LFS. Opening the viewer does not download
+that snapshot: all binary payloads are requested on demand.

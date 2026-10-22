@@ -12,6 +12,22 @@ left open by the paper), and **Added** (extra operations absent from the paperâ€
 procedure). Parameter changes are identified separately. Mixed steps explain
 which parts belong to each category; implementation lineage is mentioned once.
 
+Each VT result also has a **3D map** tab. Select one room, noise level and AP
+configuration to inspect its saved reconstruction against ground truth, room
+geometry and the survey points. Drag to rotate, Shift-drag to pan, and scroll
+to zoom; top/side views and fit-all/room framing are available. Hover or tap a
+source for its coordinates and reflection labels. Match links reproduce the
+saved F1 assignment, including combined-bag matching for A+B. Query obstacle
+layouts do not alter these survey-time reconstructions. The viewer draws every
+prediction, including large failed reconstructions; it reports off-screen
+counts when zoomed in. The renderer and coordinates load only on opening this tab.
+
+Unfiltered tables and detail panels use precomputed exact summaries. Filtered
+VTs share one compact pack per track; filtered localization uses room bundles
+when a room or family is selected. A single worker handles requests serially,
+cancels old requests, and uses bounded caches. Numeric outputs keep their
+original precision, with no sampling or histogram-based quantile estimates.
+
 To preview the published version after fetching LFS data:
 
 ```powershell
@@ -20,11 +36,13 @@ python -m http.server 8766 --bind 127.0.0.1 --directory build/pages
 ```
 
 The Pages workflow checks out LFS objects, verifies snapshot checksums and
-deploys only the static viewer and metric columns. The calibration input ZIP
+deploys the static viewer, metric columns and lazy 3D payloads. The calibration input ZIP
 remains separately downloadable from the repository. Updating descriptions uses
 `python scripts/build_method_catalog.py`; refreshing data uses
 `python scripts/export_results_site.py --include-inputs` from the original
 workspace. No dataset generation is triggered by the Pages workflow.
+To rebuild only the summary, room and 3D export from existing local results,
+run `python scripts/build_explorer_assets.py`.
 
 Run from the repository root, with the existing environment:
 
@@ -99,6 +117,6 @@ every objective checksum and streams the cases again:
 ```
 
 The server memory-maps compact columns and processes one method at a time. It
-serves only three UI assets and read-only JSON endpoints, not the repository
-filesystem. No frontend build, npm dependencies or new scientific dependencies
+serves the viewer assets, manifest-listed publication files and read-only JSON
+endpoints, not arbitrary repository paths. No frontend build, npm dependencies or new scientific dependencies
 are required. UI/backend code lives outside the frozen scientific source hash.

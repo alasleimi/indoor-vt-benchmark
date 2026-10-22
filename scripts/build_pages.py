@@ -41,6 +41,7 @@ def build(root=ROOT, output=None):
         "app.js",
         "data-client.js",
         "static-worker.js",
+        "vt-map.js",
         "method-catalog.json",
     ):
         source = root / "web/results-explorer" / name
