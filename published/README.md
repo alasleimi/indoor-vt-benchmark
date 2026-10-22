@@ -14,6 +14,17 @@ git lfs pull
 artifact hashes, code identities, reuse provenance, and result-column descriptors.
 `v6/manifest.json` provides checksums and sizes of the published files.
 
+`v6/matching/index.json` indexes a separate first-round MPUrge diagnostic for
+Rectangle 01, Direct NIST, both APs and all ten existing noise levels. Its
+`matching/*.bin.gz` packs add about 1.57 MiB in Git LFS. They store each
+fingerprint once, native source identity/gain, the local-neighborhood pair list,
+and precomputed per-pair/room counts. The browser calculates only the selected
+pair's first-round matrix; millions of score cells are not uploaded. Labels follow
+the original native paths through the exact recorded noise and sorting.
+Source identity and native gain are diagnostic-only fields, not matcher inputs.
+Rebuild with `python scripts/build_peak_matching.py`, then verify with
+`node scripts/check_peak_matching.mjs`.
+
 `v6/columns/*.bin.gz` contains losslessly compressed, content-addressed columns.
 Identical columns are shared. Metric values remain IEEE-754 float64, without
 rounding or case subsampling. The browser downloads only the selected methods'

@@ -454,11 +454,17 @@ class Explorer:
 def serve(explorer, assets, port):
     routes = {
         "/": ("index.html", "text/html"),
+        "/index.html": ("index.html", "text/html"),
         "/app.js": ("app.js", "text/javascript"),
         "/style.css": ("style.css", "text/css"),
         "/data-client.js": ("data-client.js", "text/javascript"),
         "/static-worker.js": ("static-worker.js", "text/javascript"),
         "/vt-map.js": ("vt-map.js", "text/javascript"),
+        "/matching.html": ("matching.html", "text/html"),
+        "/peak-matching.css": ("peak-matching.css", "text/css"),
+        "/peak-matching.js": ("peak-matching.js", "text/javascript"),
+        "/peak-worker.js": ("peak-worker.js", "text/javascript"),
+        "/peak-matcher.js": ("peak-matcher.js", "text/javascript"),
         "/method-catalog.json": ("method-catalog.json", "application/json"),
     }
     snapshot = assets.parents[1] / "published/v6"

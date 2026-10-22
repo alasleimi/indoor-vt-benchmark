@@ -42,6 +42,11 @@ def build(root=ROOT, output=None):
         "data-client.js",
         "static-worker.js",
         "vt-map.js",
+        "matching.html",
+        "peak-matching.css",
+        "peak-matching.js",
+        "peak-worker.js",
+        "peak-matcher.js",
         "method-catalog.json",
     ):
         source = root / "web/results-explorer" / name

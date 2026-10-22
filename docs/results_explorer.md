@@ -1,5 +1,36 @@
 # Local results explorer
 
+The **Peak matching** navigation link opens a first-round diagnostic for
+standard MPUrge on **Rectangle 01** (`rectangle_calibration_00`), Direct NIST
+only. Choose AP A or B, any existing noise level, and two survey fingerprints.
+The horizontal and vertical headers show ordered peaks, ranges and native gain.
+Each matrix cell shows dissimilarity (lower is better); circles mark accepted
+first-round matches and squares mark shared true source identity. Both shapes
+indicate a correct match. Grey cells were excluded by size unification and
+retain their ground-truth markers. No later-round matches are overlaid.
+
+The room summary pools TP/FP/FN over the 4,167 distinct fingerprint pairs in
+the nearest-10-reference neighborhoods, separately for each AP/noise condition.
+Precision, recall and F1 refer to peak identity, not the map's 0.5 m tolerance.
+Custom pairs outside those neighborhoods can be inspected but do not enter the
+room summary. Pair browsing can order by errors or F1. The score-reliability
+chart uses all first-round matrix cells; accepted-match correlation is reported
+separately. Matrices and summaries can be exported as CSV.
+
+The diagnostic uses the unchanged standard preset (`p=2`, `alpha=0.5`, summed
+pattern discrepancy). Native clean range/AoA identifies the source; saved RNG
+seeds reproduce noisy-peak rejection and sorting exactly. Source labels and
+gains are evaluation/display data only. Circles use the existing reciprocal
+matching and order-check interpretation. The browser implementation is checked
+against Python outputs; it runs in its own worker and caches at most three
+decoded packs. Only the selected condition is loaded.
+
+The additional published snapshot is about **1.57 MiB**, with all compressed
+packs in Git LFS. It stores fingerprints once, not all pairwise matrices.
+Rebuild it with `python scripts/build_peak_matching.py` in the scientific
+environment; verify the browser matcher with `node scripts/check_peak_matching.mjs`.
+Neither command changes the estimator or regenerates NIST data.
+
 The same viewer is published at
 **https://alasleimi.github.io/indoor-vt-benchmark/**. GitHub Pages runs a static
 version: lossless metric columns are loaded on demand from the LFS-backed
