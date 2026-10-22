@@ -10,6 +10,13 @@ query layouts with 100 positions each. A, B and A+B reuse the same channel
 acquisitions. Native delays, gains, phase, AoA/AoD and path geometry are retained.
 The primary estimator view exposes only ranges, AP labels and survey positions.
 
+To browse the completed presets, run
+`.venv/Scripts/python.exe scripts/results_explorer.py` and open
+**http://127.0.0.1:8765**. The local explorer has separate lists for VT
+reconstruction, raw localization, and all localization (raw + SMART-LEA), with
+condition filters, exact parameters and CSV export. See the
+[explorer guide](docs/results_explorer.md) for metric definitions and provenance.
+
 ## Run locally
 
 Use Python 3.11 and the committed `uv.lock`. The tested native toolchain is MATLAB

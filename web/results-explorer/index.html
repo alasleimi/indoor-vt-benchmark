@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Indoor VT · Results explorer</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='10' fill='%230e7668'/%3E%3Cpath d='M10 27V13h20v14M10 20h20' fill='none' stroke='white' stroke-width='2'/%3E%3C/svg%3E"
+    />
+    <link rel="stylesheet" href="/style.css" />
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to results</a>
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"
+          ><svg viewBox="0 0 32 32">
+            <path d="M6 25V7h20v18M6 16h20M16 7v18" />
+            <circle cx="16" cy="16" r="4" /></svg
+        ></span>
+        <div>Indoor VT<small>BENCHMARK EXPLORER</small></div>
+      </div>
+      <div class="nav-caption">RESULT LISTS</div>
+      <nav aria-label="Result lists">
+        <button data-view="vt" class="nav-item active">
+          <span class="nav-icon">◈</span><span>VT reconstruction</span
+          ><span class="nav-count" id="count-vt">—</span>
+        </button>
+        <button data-view="raw" class="nav-item">
+          <span class="nav-icon">⌖</span><span>Raw localization</span
+          ><span class="nav-count" id="count-raw">—</span>
+        </button>
+        <button data-view="all" class="nav-item">
+          <span class="nav-icon">◎</span><span>All localization</span
+          ><span class="nav-count" id="count-all">—</span>
+        </button>
+      </nav>
+      <div class="sidebar-note">
+        <span class="status-dot"></span> Local results
+        <div id="run-state">Reading campaign status…</div>
+        <small>Counts include both input tracks.</small>
+      </div>
+      <div class="sidebar-bottom">
+        <span>DEVELOPMENT DATASET</span><strong>8 calibration rooms</strong>
+        <p>Rectangle · L · T · Oblique</p>
+        <div class="version">v6 <span>Read-only explorer</span></div>
+      </div>
+    </aside>
+    <main id="main">
+      <header class="page-header">
+        <div>
+          <div class="eyebrow">INDOOR POSITIONING / RESULTS</div>
+          <h1 id="page-title">VT reconstruction</h1>
+          <p id="page-description">
+            Compare reconstructed source maps across the same survey conditions.
+          </p>
+        </div>
+        <button
+          id="copy-link"
+          class="button subtle"
+          title="Copy a link to these filters"
+        >
+          Copy view link <span aria-hidden="true">↗</span>
+        </button>
+      </header>
+      <div class="notice">
+        <span class="notice-tag">INITIAL PRESETS</span>
+        <p>
+          Calibration results using published settings and disclosed adapter
+          defaults. Hyperparameter search is unfinished; these are not held-out
+          test rankings.
+        </p>
+      </div>
+      <section class="workspace" aria-label="Result filters">
+        <div class="workspace-top">
+          <div class="track-control" role="group" aria-label="Input track">
+            <button data-track="receiver" class="selected">
+              SAPP receiver <small>Simulated receiver peaks</small></button
+            ><button data-track="direct">
+              Direct NIST <small>Ray delays + range noise</small>
+            </button>
+          </div>
+          <div id="track-note" class="track-note">
+            Noise: receiver SNR in dB
+          </div>
+        </div>
+        <div class="filters">
+          <label
+            >Room family<select id="family">
+              <option value="">All families</option>
+            </select></label
+          >
+          <label
+            >Room<select id="room">
+              <option value="">All 8 rooms</option>
+            </select></label
+          >
+          <label id="noise-label"
+            >Noise level<select id="noise">
+              <option value="">All noise levels</option>
+            </select></label
+          >
+          <label
+            >AP placement<select id="ap">
+              <option value="">A, B and A+B</option>
+              <option>A</option>
+              <option>B</option>
+              <option>A+B</option>
+            </select></label
+          >
+          <label class="local-filter"
+            >Obstacle count<select id="obstacles">
+              <option value="">All obstacle counts</option>
+              <option value="0">0 · Empty room</option>
+              <option value="1">1 obstacle</option>
+              <option value="3">3 obstacles</option>
+              <option value="5">5 obstacles</option>
+            </select></label
+          >
+          <label class="local-filter"
+            >Layout<select id="layout">
+              <option value="">All 10 layouts</option>
+            </select></label
+          >
+          <label class="vt-filter"
+            >Grouping scope<select id="scope">
+              <option value="">All scopes</option>
+              <option value="local">Local</option>
+              <option value="full">Full room</option>
+            </select></label
+          >
+          <label class="vt-filter"
+            >VT merger<select id="merger">
+              <option value="">All mergers</option>
+            </select></label
+          >
+          <label class="all-filter"
+            >Localization stage<select id="stage">
+              <option value="">Raw + SMART-LEA</option>
+              <option value="pipeline">With SMART-LEA only</option>
+              <option value="coarse">Raw only</option>
+            </select></label
+          >
+        </div>
+        <div class="filter-footer">
+          <span id="filter-summary">All conditions · equal weight per case</span
+          ><button id="reset" class="text-button">Reset filters</button>
+        </div>
+      </section>
+      <section
+        id="cards"
+        class="cards"
+        aria-label="Results at a glance"
+      ></section>
+      <section
+        class="results-panel"
+        aria-label="Ranked results"
+        aria-busy="true"
+        id="results-panel"
+      >
+        <div class="table-toolbar">
+          <div>
+            <h2>
+              Methods &amp; variants
+              <span id="row-count" class="count-pill">—</span>
+            </h2>
+            <p id="ranking-note">Ordered by OSPA · lower is better</p>
+          </div>
+          <div class="table-actions">
+            <label class="search-label"
+              ><span aria-hidden="true">⌕</span
+              ><input
+                id="search"
+                type="search"
+                placeholder="Find a method…"
+                aria-label="Find a method" /></label
+            ><button id="export" class="button">
+              Export CSV <span aria-hidden="true">↓</span>
+            </button>
+          </div>
+        </div>
+        <div id="error" class="error" role="alert" hidden></div>
+        <div class="table-scroll">
+          <table id="results-table">
+            <thead id="table-head"></thead>
+            <tbody id="table-body">
+              <tr>
+                <td class="empty">Loading verified results…</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <footer class="table-footer">
+          <span id="metric-note"></span
+          ><span
+            >Click a method for details <span aria-hidden="true">↗</span></span
+          >
+        </footer>
+      </section>
+      <div class="page-footer">
+        <span id="source-note">Source: completed v6 preset receipts</span
+        ><span>3D coordinates · distances in meters</span>
+      </div>
+    </main>
+    <div id="drawer-backdrop" class="drawer-backdrop" hidden></div>
+    <section
+      id="drawer"
+      class="drawer"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="detail-title"
+      hidden
+      tabindex="-1"
+    >
+      <header class="drawer-header">
+        <div class="eyebrow">RESULT DETAIL</div>
+        <button
+          id="close-detail"
+          class="icon-button"
+          aria-label="Close result detail"
+        >
+          ×
+        </button>
+        <h2 id="detail-title">Method</h2>
+        <p id="detail-subtitle"></p>
+      </header>
+      <div class="detail-tabs" role="tablist" aria-label="Detail sections">
+        <button
+          role="tab"
+          id="tab-overview"
+          aria-controls="detail-content"
+          data-tab="overview"
+          aria-selected="true"
+        >
+          Overview</button
+        ><button
+          role="tab"
+          id="tab-parameters"
+          aria-controls="detail-content"
+          data-tab="parameters"
+          aria-selected="false"
+        >
+          Parameters</button
+        ><button
+          role="tab"
+          id="tab-provenance"
+          aria-controls="detail-content"
+          data-tab="provenance"
+          aria-selected="false"
+        >
+          Provenance
+        </button>
+      </div>
+      <div
+        id="detail-content"
+        class="detail-content"
+        role="tabpanel"
+        aria-labelledby="tab-overview"
+      ></div>
+    </section>
+    <div id="toast" class="toast" role="status" hidden></div>
+  </body>
+</html>
