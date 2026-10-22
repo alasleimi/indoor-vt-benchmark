@@ -284,6 +284,16 @@ function methodComponents(job) {
 function primarySource(job) {
   return methodCatalog?.methods[methodComponents(job)[0].key]?.code[0];
 }
+function stepDescription(text) {
+  const parts = text.split(
+    /\s+(Paper(?: \([^)]*\))?:|Ambiguity resolved:|Added:|Parameter change:)\s+/,
+  );
+  let html = `<p>${esc(parts[0])}</p>`;
+  for (let i = 1; i < parts.length; i += 2) {
+    html += `<p><strong>${esc(parts[i])}</strong> ${esc(parts[i + 1])}</p>`;
+  }
+  return html;
+}
 function methodDescription(job) {
   const components = methodComponents(job);
   let html =
@@ -315,7 +325,7 @@ function methodDescription(job) {
           const source = entry.code.find(
             (link) => link.symbol === step.code_symbol,
           );
-          return `<li><h4>${esc(step.title)}</h4><div class="origin-tags">${step.tags.map((tag) => `<span class="origin-tag">${esc(tag)}</span>`).join("")}</div><p>${esc(interpolate(step.text))}</p>${source ? `<a class="step-source" href="${esc(source.url)}" target="_blank" rel="noopener noreferrer">Implementation: ${esc(source.symbol)} ↗</a>` : ""}</li>`;
+          return `<li><h4>${esc(step.title)}</h4><div class="origin-tags">${step.tags.map((tag) => `<span class="origin-tag">${esc(tag)}</span>`).join("")}</div>${stepDescription(interpolate(step.text))}${source ? `<a class="step-source" href="${esc(source.url)}" target="_blank" rel="noopener noreferrer">Implementation: ${esc(source.symbol)} ↗</a>` : ""}</li>`;
         })
         .join(
           "",
