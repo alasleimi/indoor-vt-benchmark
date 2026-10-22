@@ -1,4 +1,4 @@
-"""Persistent preset-first campaign; shadows wait for all main hyperparameter searches."""
+"""Preset-first campaign with bounded, single-task workers."""
 
 import argparse
 from datetime import datetime, timezone
@@ -16,6 +16,7 @@ from types import SimpleNamespace
 from indoor_vt.finish import exclusive_lock, existing_process
 from indoor_vt.provenance import code_provenance, digest, file_hash, read_json, write_json
 from indoor_vt.revision_campaign import build_primary_jobs, directory, run_job
+from indoor_vt.worker_memory import DEFAULT_LIMITS, install_limits, memory_snapshot
 
 SHADOWS = (
     "four_cycle",
@@ -62,7 +63,7 @@ def build_jobs():
     return jobs
 
 
-def worker(root, namespace, revision, shadow, expected_hash, tasks, results, parent_pid):
+def worker(root, namespace, revision, shadow, expected_hash, job, results, parent_pid, limits):
     def monitor_parent():
         with existing_process(parent_pid) as alive:
             while alive():
@@ -70,46 +71,45 @@ def worker(root, namespace, revision, shadow, expected_hash, tasks, results, par
         os._exit(3)  # No competing cache writers after an abrupt runner exit.
 
     threading.Thread(target=monitor_parent, daemon=True).start()
-    evaluators = {}
     sys.path.insert(0, str(shadow))
-    while True:
-        job = tasks.get()
-        if job is None:
-            return
-        try:
-            if code_provenance(root)["source_hash"] != expected_hash:
-                raise RuntimeError("Frozen campaign code changed")
-            if job["kind"].startswith("shadow"):
-                import workflow
+    # Release this reserve before formatting an allocation failure report.
+    reserve = bytearray(1024 * 1024)
+    try:
+        install_limits(**limits)
+        if code_provenance(root)["source_hash"] != expected_hash:
+            raise RuntimeError("Frozen campaign code changed")
+        if job["kind"].startswith("shadow"):
+            import workflow
 
-                args = SimpleNamespace(
-                    benchmark=root,
-                    namespace=namespace,
-                    revision=revision,
-                    track=job["track"],
-                    regime=job["regime"],
-                    scope=job["scope"],
-                    method=job["method"],
-                )
-                if job["kind"] == "shadow":
-                    workflow.select(args)
-                    path = workflow.output(args) / (job["method"] + "_promotion.json")
-                else:
-                    workflow.evaluate(args)
-                    path = workflow.output(args) / (job["method"] + "_test.summary.json")
-                result = {"state": "complete", "artifact": str(path)}
-            else:
-                result = run_job(root, namespace, revision, job, evaluators)
-            results.put({"id": job["id"], "pid": os.getpid(), **result})
-        except Exception:
-            results.put(
-                {
-                    "id": job["id"],
-                    "pid": os.getpid(),
-                    "state": "error",
-                    "traceback": traceback.format_exc(),
-                }
+            args = SimpleNamespace(
+                benchmark=root,
+                namespace=namespace,
+                revision=revision,
+                track=job["track"],
+                regime=job["regime"],
+                scope=job["scope"],
+                method=job["method"],
             )
+            if job["kind"] == "shadow":
+                workflow.select(args)
+                path = workflow.output(args) / (job["method"] + "_promotion.json")
+            else:
+                workflow.evaluate(args)
+                path = workflow.output(args) / (job["method"] + "_test.summary.json")
+            result = {"state": "complete", "artifact": str(path)}
+        else:
+            result = run_job(root, namespace, revision, job, {})
+    except Exception as error:
+        del reserve
+        result = {
+            "state": "error",
+            "error_kind": "memory_limit" if isinstance(error, MemoryError) else "execution",
+            "traceback": traceback.format_exc(),
+        }
+    result["worker_memory"] = memory_snapshot()
+    results.put({"id": job["id"], "pid": os.getpid(), **result})
+    # Process exit releases evaluator caches, Python arenas, native heaps and
+    # file mappings before another job or search turn is started.
 
 
 def eligible_jobs(jobs, states):
@@ -138,6 +138,12 @@ def report(base, jobs, states, phase, processes, spec):
     completed = sum(s["state"] == "complete" for s in states.values())
     running = [key for key, state in states.items() if state["state"] == "running"]
     failed = [key for key, state in states.items() if state["state"] == "failed"]
+    measurements = []
+    for process in processes:
+        try:
+            measurements.append(memory_snapshot(process.pid))
+        except OSError:
+            pass  # A finished child can exit between is_alive and sampling.
     state = {
         "updated_utc": now(),
         "phase": phase,
@@ -147,10 +153,18 @@ def report(base, jobs, states, phase, processes, spec):
         "failed": failed,
         "jobs": states,
         "finished": completed == len(jobs),
+        "execution_state": "complete" if completed == len(jobs) else "running",
         "specification_identity": spec["identity"],
         "worker_pids": [p.pid for p in processes],
+        "worker_memory": measurements,
+        "memory_policy": spec.get("memory_policy"),
     }
     write_json(base / "status.json", state)
+    with (base / "memory.jsonl").open("a", encoding="utf-8") as handle:
+        handle.write(
+            json.dumps({"time_utc": state["updated_utc"], "jobs": running, "workers": measurements})
+            + "\n"
+        )
     phase_name = {
         0: "Initial preset coverage",
         1: "Main hyperparameter calibration",
@@ -216,7 +230,10 @@ def report(base, jobs, states, phase, processes, spec):
     return state
 
 
-def run(root, namespace, revision, shadow, workers=2):
+def run(root, namespace, revision, shadow, workers=1, limits=None):
+    if workers < 1:
+        raise ValueError("At least one worker is required")
+    limits = dict(DEFAULT_LIMITS if limits is None else limits)
     root, shadow = Path(root).resolve(), Path(shadow).resolve()
     base = directory(root, namespace, revision)
     base.mkdir(parents=True, exist_ok=True)
@@ -242,6 +259,7 @@ def run(root, namespace, revision, shadow, workers=2):
         "compatibility_hash": file_hash(compatibility) if compatibility.exists() else None,
         "phase_rule": "Primary presets; all main calibration/freeze; shadow selection; held-out evaluation.",
         "workers": workers,
+        "memory_policy": {**limits, "tasks_per_worker": 1},
     }
     spec["identity"] = digest(spec)
     if (base / "specification.json").exists() and read_json(base / "specification.json") != spec:
@@ -266,26 +284,10 @@ def run(root, namespace, revision, shadow, workers=2):
     ):
         os.environ[name] = "1"
     context = mp.get_context("spawn")
-    tasks, results = context.Queue(), context.Queue()
-    processes = []
+    results = context.Queue()
+    processes, dead_since = {}, {}
     with exclusive_lock(base / "runner.lock"):
         try:
-            for _ in range(workers):
-                process = context.Process(
-                    target=worker,
-                    args=(
-                        root,
-                        namespace,
-                        revision,
-                        shadow,
-                        core["source_hash"],
-                        tasks,
-                        results,
-                        os.getpid(),
-                    ),
-                )
-                process.start()
-                processes.append(process)
             while True:
                 if code_provenance(root)["source_hash"] != core["source_hash"]:
                     raise RuntimeError("Source changed during frozen revision")
@@ -293,60 +295,116 @@ def run(root, namespace, revision, shadow, workers=2):
                     "shadow_hashes"
                 ]:
                     raise RuntimeError("Shadow implementation changed during frozen revision")
-                for process in processes:
-                    if not process.is_alive():
-                        raise RuntimeError(
-                            f"Worker {process.pid} exited unexpectedly; saved objectives are resumable"
-                        )
                 while True:
                     try:
                         result = results.get_nowait()
                     except queue.Empty:
                         break
                     state = states[result["id"]]
+                    process = processes.pop(result["id"])
+                    process.join(timeout=5)
+                    if process.is_alive():
+                        process.terminate()
+                        process.join(timeout=5)
+                    if process.is_alive():
+                        raise RuntimeError("Finished worker could not be stopped")
+                    process.close()
+                    dead_since.pop(result["id"], None)
                     if result["state"] == "error":
                         state["failures"] += 1
-                        result["state"] = "pending" if state["failures"] < 2 else "failed"
+                        result["state"] = (
+                            "pending"
+                            if state["failures"] < 2 and result.get("error_kind") != "memory_limit"
+                            else "failed"
+                        )
                     state.update(result, finished_utc=now())
                     print(json.dumps(result), flush=True)
+                for identifier, process in processes.items():
+                    if not process.is_alive():
+                        if process.exitcode != 0 or identifier in dead_since:
+                            raise RuntimeError(
+                                f"Worker {process.pid} exited without a result; saved objectives are resumable"
+                            )
+                        # Allow a final queue delivery to become visible on the
+                        # next loop before diagnosing an unexpected clean exit.
+                        dead_since[identifier] = now()
                 phase, available = eligible_jobs(jobs, states)
-                active = sum(s["state"] == "running" for s in states.values())
-                for job in available[: max(0, workers - active)]:
+                for job in available[: max(0, workers - len(processes))]:
                     state = states[job["id"]]
                     state.update(state="running", started_utc=now(), turns=state["turns"] + 1)
-                    tasks.put(job)
-                status = report(base, jobs, states, phase, processes, spec)
+                    process = context.Process(
+                        target=worker,
+                        args=(
+                            root,
+                            namespace,
+                            revision,
+                            shadow,
+                            core["source_hash"],
+                            job,
+                            results,
+                            os.getpid(),
+                            limits,
+                        ),
+                    )
+                    process.start()
+                    state["pid"] = process.pid
+                    processes[job["id"]] = process
+                status = report(base, jobs, states, phase, list(processes.values()), spec)
                 if status["finished"]:
                     return status
                 if not status["running"] and not available:
                     raise RuntimeError("Campaign cannot advance; inspect failures and dependencies")
                 time.sleep(5)
         finally:
-            for _ in processes:
-                tasks.put(None)
             # Keep completed artifacts; a failed runner must not leave competing writers.
-            for process in processes:
+            for process in processes.values():
                 process.join(timeout=2)
                 if process.is_alive():
                     process.terminate()
                     process.join(timeout=2)
+                if not process.is_alive():
+                    process.close()
+            results.close()
+            results.join_thread()
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=Path.cwd())
     parser.add_argument("--namespace", default="development", choices=("development",))
-    parser.add_argument("--revision", default="v3")
+    parser.add_argument("--revision", default="v6")
     parser.add_argument("--shadow", type=Path, default=Path("../experiments/indoor_vt_shadow"))
-    parser.add_argument("--workers", type=int, default=2)
+    parser.add_argument("--workers", type=int, default=1)
+    parser.add_argument("--working-set-mib", type=int, default=2048)
+    parser.add_argument("--private-memory-mib", type=int, default=4096)
     args = parser.parse_args()
     try:
-        run(args.root, args.namespace, args.revision, args.shadow, args.workers)
+        run(
+            args.root,
+            args.namespace,
+            args.revision,
+            args.shadow,
+            args.workers,
+            {
+                "working_set_bytes": args.working_set_mib * 1024**2,
+                "private_commit_bytes": args.private_memory_mib * 1024**2,
+            },
+        )
     except Exception:
         base = directory(args.root, args.namespace, args.revision)
         write_json(
             base / "runner_error.json", {"time_utc": now(), "traceback": traceback.format_exc()}
         )
+        if (base / "status.json").exists():
+            status = read_json(base / "status.json")
+            interrupted = status.get("running", [])
+            for identifier in interrupted:
+                status["jobs"][identifier]["state"] = "pending"
+            status.update(
+                execution_state="stopped_on_error", updated_utc=now(),
+                interrupted_jobs=interrupted, running=[], worker_pids=[], worker_memory=[],
+            )
+            write_json(base / "status.json", status)
         raise
 
 

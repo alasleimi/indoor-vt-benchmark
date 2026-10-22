@@ -60,19 +60,15 @@ reused across pipeline partners. LEA settings belong to the named pairing.
 Every trial uses the complete declared calibration set with uniform averaging.
 These full campaigns can take substantially longer than dataset generation.
 
-The active comparison queue is started/resumed with
-`uv run python scripts/run_revision_campaign.py --revision v5 --workers 1`.
-It first covers all main presets, then interleaves main hyperparameter searches
-one new configuration at a time. All shadow work waits for main calibration
-and freezes; held-out testing waits for all selection. The runner updates
-`runs/development/revisions/v5/report.md` itself. Original trials and earlier
-queues remain preserved; do not restart an old queue alongside revision v5.
-One worker reduces peak memory pressure after the v3 runner's memory failure.
-See the execution record for exact counts, reuse and timing conventions.
-The [performance record](docs/performance.md) describes the additional exact
-cache reuse and its validation.
-The [complete-link record](docs/complete_link_performance.md) covers exact
-hierarchy preservation with one distance workspace and file-backed storage.
+The comparison campaign is **stopped by user request** for the memory fix.
+Revision v6 is prepared with the 108 completed presets preserved; restart only
+when requested, using `uv run python scripts/run_revision_campaign.py --revision v6 --workers 1`.
+It uses fresh workers per task, enforced memory quotas, bounded complete-link
+row caching and streamed audit encoding. The same scientific queue and search
+budgets remain. Main calibration and freezes precede shadow work; all selection
+precedes held-out testing. Old revisions must remain stopped.
+See the [memory fix and validation](docs/memory_safety.md),
+[execution record](docs/execution.md) and [cache performance record](docs/performance.md).
 
 Test evaluation requires a calibration freeze and checks the code, data,
 observation manifests and reference-source hashes. A missing acquisition is an

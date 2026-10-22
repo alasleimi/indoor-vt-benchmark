@@ -50,9 +50,15 @@ def main():
     parser.add_argument("--points", type=Path, required=True)
     parser.add_argument("--reference", type=Path)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--working-set-mib", type=int)
     args = parser.parse_args()
+    if args.working_set_mib is not None:
+        from indoor_vt.worker_memory import install_limits
+
+        install_limits(args.working_set_mib * 1024**2, 4 * 1024**3)
     points = np.load(args.points)
     complete_linkage(points[:10])  # Compile/load kernels outside measured region.
+    complete_linkage(points[:10], memory_limit_bytes=0)
     rows = []
     if args.reference:
         expected = np.load(args.reference)
@@ -64,6 +70,8 @@ def main():
             {
                 "candidates": len(points),
                 "condensed_bytes": len(points) * (len(points) - 1) // 2 * 8,
+                "distance_cache_budget_bytes": 256 * 1024**2,
+                "distance_file_bytes": 0,
                 "seconds": elapsed,
                 "exact_full_hierarchy": True,
                 "reference": str(args.reference),
@@ -86,7 +94,7 @@ def main():
                 rows.append(
                     {
                         "candidates": n,
-                        "storage": "memory" if limit else "file",
+                        "storage": "condensed_memory" if limit else "two_row_cache",
                         "scipy_s": original_s,
                         "revised_s": elapsed,
                         "exact_full_hierarchy": True,

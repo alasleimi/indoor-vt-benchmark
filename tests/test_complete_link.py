@@ -38,15 +38,22 @@ def test_full_hierarchy_bit_exact_including_ties_duplicates_and_permutations(
     assert not list(tmp_path.iterdir())
 
 
-def test_disk_workspace_removed_after_failure(tmp_path, monkeypatch):
+def test_bounded_storage_never_creates_a_distance_file(tmp_path, monkeypatch):
     from indoor_vt import complete_link
 
-    def fail(*args):
-        raise RuntimeError("simulated computation failure")
+    original = complete_link._bounded_chain
+    capacities = []
 
-    monkeypatch.setattr(complete_link, "_calculate", fail)
-    with pytest.raises(RuntimeError, match="simulated"):
-        complete_linkage(np.zeros((3, 3)), memory_limit_bytes=0, scratch_dir=tmp_path)
+    def capture(points, capacity):
+        capacities.append(capacity)
+        return original(points, capacity)
+
+    monkeypatch.setattr(complete_link, "_bounded_chain", capture)
+    points = np.random.default_rng(83).normal(size=(200, 3))
+    for budget, capacity in ((0, 2), (200 * 8 * 3, 3), (200 * 8 * 17, 17)):
+        actual = complete_linkage(points, memory_limit_bytes=budget, scratch_dir=tmp_path)
+        np.testing.assert_array_equal(actual, linkage(points, method="complete"))
+        assert capacities[-1] == capacity
     assert not list(tmp_path.iterdir())
 
 
@@ -58,41 +65,18 @@ def test_invalid_or_trivial_candidate_arrays():
             complete_linkage(points)
 
 
-def test_interrupted_worker_does_not_leave_distance_file(tmp_path):
-    import os
-    import signal
-    import subprocess
-    import sys
-    import time
+@pytest.mark.parametrize("budget", [0, 256 * 1024 * 1024])
+def test_distance_overflow_rejected(budget):
+    with pytest.raises(ValueError, match="finite"):
+        complete_linkage(np.array([[1e308, 0], [-1e308, 0]]), memory_limit_bytes=budget)
 
-    if os.name != "nt":
-        pytest.skip("Windows delete-on-close verification")
-    scratch = tmp_path / "scratch"
-    ready = tmp_path / "ready"
-    script = """
-import os,sys,time
-from pathlib import Path
-import numpy as np
-from indoor_vt import complete_link
-def wait(points, distances):
-    Path(sys.argv[2]).write_text(str(os.getpid()))
-    time.sleep(30)
-complete_link._calculate=wait
-complete_link.complete_linkage(np.zeros((3,3)),memory_limit_bytes=0,scratch_dir=sys.argv[1])
-"""
-    process = subprocess.Popen([sys.executable, "-c", script, str(scratch), str(ready)])
-    try:
-        deadline = time.monotonic() + 20
-        while not ready.exists() and process.poll() is None and time.monotonic() < deadline:
-            time.sleep(0.05)
-        assert ready.exists()
-        assert list(scratch.iterdir())
-        # A Windows venv launcher can have a separate interpreter child. Kill
-        # the process actually holding the mapping, as the runner does.
-        os.kill(int(ready.read_text()), signal.SIGTERM)
-        process.wait(timeout=10)
-    finally:
-        if process.poll() is None:
-            process.kill()
-            process.wait(timeout=10)
-    assert not list(scratch.iterdir())
+
+def test_bounded_distance_kernel_matches_scipy_in_multiple_dimensions():
+    rng = np.random.default_rng(490)
+    for dimensions in (0, 1, 2, 3, 8, 31):
+        for scale in (1e-100, 1, 1e100):
+            points = rng.normal(size=(40, dimensions)) * scale
+            np.testing.assert_array_equal(
+                complete_linkage(points, memory_limit_bytes=0),
+                linkage(points, method="complete"),
+            )

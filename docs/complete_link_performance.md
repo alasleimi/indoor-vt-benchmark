@@ -1,4 +1,8 @@
-# Exact complete-link clustering with less private memory
+# Historical v5 complete-link measurements
+
+This records the earlier v5 implementation. Revision v6 supersedes its large
+file-backed workspace with bounded row caching; see [the memory fix](memory_safety.md).
+The campaign is currently stopped by user request.
 
 The former implementation called SciPy 1.15.3 `linkage(points, method="complete")`.
 This is a standard compiled nearest-neighbor-chain implementation, but it first

@@ -4,7 +4,14 @@ This is a local-only repository. The original plan remains at
 `../../DATASET_PIPELINE_PLAN.md`; it was not moved into this repository.
 The publication namespace remains unused.
 
-## Active execution revision v5
+## Prepared execution revision v6; campaign stopped
+
+The user stopped the campaign on 2026-10-22 for memory investigation.
+**108 of 110 initial presets are complete; no scientific worker is running.**
+Revision v6 is prepared for an explicit restart, preserving all completed work.
+It replaces large mapped distance files with bounded row caching, streams audit
+encoding, and uses one fresh worker per task with enforced memory limits.
+See the [memory fix](memory_safety.md) for measurements and exact-output checks.
 
 The [external plan](../../DATASET_PIPELINE_PLAN.md) now runs initial
 published/disclosed presets before deeper main calibration. Greedy median and
@@ -47,7 +54,7 @@ complete-link workspace, file-backed above 256 MiB. The same 39,742-candidate
 case reproduced its entire saved SciPy hierarchy exactly. The estimator's
 numerical outputs, scientific jobs and search domains are unchanged; completed
 presets and objectives are carried forward with explicit compatibility receipts.
-One worker continues from v4. See the [complete-link record](complete_link_performance.md)
+Historically, one worker continued from v4 until the user requested the stop. See the [complete-link record](complete_link_performance.md)
 for measured memory, timings, tie handling and the remaining quadratic storage cost.
 
 ## Implemented
@@ -109,11 +116,12 @@ computer is shut down or asleep.
 
 ## Calibration and evaluation campaign
 
-Full scientific calibration started on 2026-10-21. Revision v5 runs one
-persistent worker with one numerical-library thread. During the code
-transition two useful preset workers continued on an immutable old source
-snapshot. The revised workers use verified caches and preserve all original
-artifacts. This is ongoing calibration, not a completed benchmark.
+Full scientific calibration started on 2026-10-21 and is currently stopped.
+Revision v6 retains one numerical-library thread and one concurrent worker,
+but replaces the worker after every scheduling turn. Windows worker limits
+are 2 GiB resident and 4 GiB private memory. Verified disk caches and all
+original artifacts are preserved. This is incomplete calibration, not a
+completed benchmark.
 
 The comparison matrix swaps each of the twelve VT entries into MPUrge-MAP plus
 SMART-LEA, and swaps the other three initial localizers into MPUrge-local plus
@@ -131,7 +139,7 @@ remains external through the campaign so registry changes cannot invalidate
 existing freezes. Importing eligible implementations follows the campaign audit.
 
 The revised graph has **450 jobs**, recorded in
-`runs/development/revisions/v5/specification.json`:
+`runs/development/revisions/v6/specification.json`:
 
 1. 110 initial main presets: 8 coarse, 72 VT including merger alternatives,
    and 30 pipeline presets. The default merger of every VT method is covered
@@ -144,22 +152,22 @@ The revised graph has **450 jobs**, recorded in
 4. 60 primary test evaluations and 64 conditional shadow test evaluations.
 
 The original 248-job specification/status remains in `runs/development/campaign`.
-It and revisions v2/v3/v4 are historical and must not run concurrently with v5. The runner locks
-its revision, checks source and shadow identities, retries an error once, and
+It and revisions v2/v3/v4/v5 are historical and must remain stopped. The runner locks
+its revision, checks source and shadow identities, retries non-memory execution errors once, and
 blocks later phases after unresolved failures. If the parent exits, workers
 stop too; restart resumes saved objectives and searches. Interrupted in-flight
 case computations may repeat, while completed artifacts remain available.
 
-Live progress and completed results are in
-`runs/development/revisions/v5/report.md` and `status.json`. The runner updates
-them automatically. Completed candidate counts are distinct from completed
+Prepared state and completed results are in
+`runs/development/revisions/v6/report.md` and `status.json`. The runner will update
+them after the user requests a restart. Completed candidate counts are distinct from completed
 pipeline jobs. Full searches can take much longer than propagation.
 
 ```powershell
-uv run python scripts/run_revision_campaign.py --revision v5 --workers 1
+uv run python scripts/run_revision_campaign.py --revision v6 --workers 1
 ```
 
-This command resumes the recorded campaign. Do not edit estimator settings or
+Run this command only after the user requests a restart. It resumes the recorded campaign. Do not edit estimator settings or
 shadow implementations during it: the queue checks those hashes and stops
 launching new work if they change. No pilot score is a publication result, and
 the 2019 adapter retains its assumption label in every comparison.
@@ -181,11 +189,11 @@ LEA parameters. Loading/hash checks are memoized, with a bounded query cache.
 
 Custom injected matchers/fitting implementations bypass intermediate caches
 unless their identities are explicitly covered. Atomic writes use separate
-process temporary files. Standard complete-link clustering retains quadratic
-distance storage in one mutable workspace, file-backed when large; it does not
-impose a source cap or approximate clustering.
+process temporary files. Standard complete-link clustering uses a bounded distance-row cache when its
+condensed array would exceed 256 MiB. It does not impose a source cap or
+approximate clustering; its full hierarchy remains exact.
 
-Validation: **58 tests passed**, Ruff clean, and an old/new implementation audit
+Validation for v6: **63 tests passed**, Ruff clean, and an old/new implementation audit
 matched **288 coarse predictions exactly** across both observation tracks and
 all four localizers. All **12 VT methods** matched exactly on a controlled
 multipath fixture (consensus trials reduced only for that verification fixture).
@@ -195,8 +203,9 @@ searches, stage dependencies and the main-before-shadow barrier.
 The v3 checks also matched 1,144,000 MCA/Chamfer scores exactly on full calibration
 cases and cover LEA prefix reuse, later-iteration failure, unbounded peak counts,
 grouping reuse and source-summary invalidation.
-Revision v5 also verifies exact full complete-link hierarchies, both workspace
-backends, threshold ties and cleanup after abrupt Windows worker termination.
+Revision v6 verifies exact full complete-link hierarchies, cache eviction,
+threshold ties, JSON byte equivalence, enforced Windows quotas and fresh worker
+processes. See [the memory validation](memory_safety_validation.json).
 
 Original timings remain original timings. Cached score receipts record matrix
 compute time separately; new per-query coarse timings cover ranking only.

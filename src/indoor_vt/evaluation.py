@@ -33,11 +33,16 @@ def gzip_json(path, value):
     temporary = path.with_suffix(f".{os.getpid()}.tmp")
     with temporary.open("wb") as f:
         with gzip.GzipFile(filename="", mode="wb", fileobj=f, mtime=0) as z:
-            z.write(
-                json.dumps(
-                    value, separators=(",", ":"), allow_nan=False, default=json_default
-                ).encode()
-            )
+            encoder = json.JSONEncoder(separators=(",", ":"), allow_nan=False, default=json_default)
+            chunks, size = [], 0
+            for chunk in encoder.iterencode(value):
+                chunks.append(chunk)
+                size += len(chunk)
+                if size >= 1024 * 1024:
+                    z.write("".join(chunks).encode())
+                    chunks, size = [], 0
+            if chunks:
+                z.write("".join(chunks).encode())
     replace_file(temporary, path)
 
 

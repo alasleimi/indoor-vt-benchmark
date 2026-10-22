@@ -1,0 +1,42 @@
+{
+  "old_code_hash": "fadff5e05d80960a94410eb91970a41d4218d4d931afc179cdc1c90c2f9b9de2",
+  "new_code_hash": "6b3fe904465e18a9d3c47fde66d070b657453d9c35054ac6f1d92bb63e28a973",
+  "exact": true,
+  "coarse_predictions": 288,
+  "vt_methods": 12,
+  "tests_passed": 63,
+  "ruff": "clean",
+  "full_hierarchy": {
+    "candidates": 39742,
+    "condensed_bytes": 6317547288,
+    "distance_cache_budget_bytes": 268435456,
+    "distance_file_bytes": 0,
+    "seconds": 22.143183500040323,
+    "exact_full_hierarchy": true,
+    "reference": "..\\indoor-vt-benchmark\\runs\\development\\diagnostics\\complete_link\\expected_hierarchy.npy",
+    "peak_private_commit_bytes": 1363222528,
+    "peak_working_set_bytes": 391843840,
+    "current_private_bytes": 1093226496
+  },
+  "changes": [
+    "Bounded complete-link row cache; no quadratic distance file",
+    "Streamed audit JSON encoding",
+    "Fresh bounded Windows worker per job/search turn; memory telemetry"
+  ],
+  "scientific_jobs_parameters_and_search_budgets_unchanged": true,
+  "campaign_state": "stopped_by_user",
+  "artifacts": {
+    "pipeline.json": {
+      "path": "C:\\Users\\Ala\\Desktop\\IDP PROJECT\\indoor-vt-benchmark\\runs\\development\\diagnostics\\memory_fix\\pipeline.json",
+      "sha256": "bc1ad0afa0728877263e355c5e58981bc16f656f19077a7261c0584211220eef"
+    },
+    "complete_link.json": {
+      "path": "C:\\Users\\Ala\\Desktop\\IDP PROJECT\\indoor-vt-benchmark\\runs\\development\\diagnostics\\memory_fix\\complete_link.json",
+      "sha256": "830e9051c46d9a5592f98d583e297ffd1399f2bea2c306bcfd07a55b70d4cb1c"
+    }
+  },
+  "hierarchy_reference": {
+    "path": "C:\\Users\\Ala\\Desktop\\IDP PROJECT\\indoor-vt-benchmark\\runs\\development\\diagnostics\\complete_link\\expected_hierarchy.npy",
+    "sha256": "f313d09634660f981e8b1ae1f817d333662f1a09ed6707c582af5baac9162c13"
+  }
+}
