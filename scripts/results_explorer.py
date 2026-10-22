@@ -128,6 +128,7 @@ def summarize(array, stage):
     return {
         "count": len(array),
         "mean": mean,
+        "rmse": float(np.sqrt(np.mean(np.square(final)))),
         "median": float(np.median(final)),
         "p90": float(np.quantile(final, 0.9)),
         "initial": initial_mean,
@@ -280,6 +281,11 @@ def build_index(root, revision="v6", force=False):
                 {"metrics": metrics, "identity": header["identity"], "room_ids": current_rooms},
             )
         cached = read_json(summary_path)
+        if job["stage"] != "vt" and "rmse" not in cached["metrics"]:
+            array = np.load(column_path, mmap_mode="r", allow_pickle=False)
+            cached["metrics"] = summarize(array, job["stage"])
+            del array
+            write_json(summary_path, cached)
         for field in ("stage", "method", "track", "parameters"):
             if cached["identity"][field] != job[field]:
                 raise ValueError(f"Cached objective identity mismatch ({field}): {job['id']}")

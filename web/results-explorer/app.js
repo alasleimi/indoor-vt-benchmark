@@ -59,6 +59,7 @@ const sortNames = {
   ospa: "OSPA",
   f1: "F1 at 0.5 m",
   mean: "mean 3D error",
+  rmse: "root mean squared 3D error",
   median: "median 3D error",
   p90: "90th-percentile error",
   predicted: "predicted source count",
@@ -228,6 +229,7 @@ function activeSort() {
       ? ["ospa", "f1", "predicted", "truth", "count", "name"]
       : [
           "mean",
+          "rmse",
           "median",
           "p90",
           "initial",
@@ -337,6 +339,7 @@ function render() {
         ["name", "Localization method"],
         [null, "Stage"],
         ["mean", "Mean (m)"],
+        ["rmse", "RMSE (m)"],
         ["median", "Median (m)"],
         ["p90", "P90 (m)"],
         ["improvement", "Gain vs raw"],
@@ -368,11 +371,11 @@ function render() {
           const method = `<td class="method-cell"><button class="method-button" data-id="${esc(r.id)}">${esc(r.name)}</button><div class="method-meta">${sub}</div></td>`;
           const number = vt
             ? `<td class="merger-cell">${esc(meta.mergers[r.merger] || "Method default")}</td><td class="metric-primary">${fmt(r.ospa)}<span class="mini-bar"><span style="width:${Math.min(100, r.ospa * 100)}%"></span></span></td><td>${fmt(r.f1 * 100, 2)}<span class="unit">%</span></td><td title="Mean predicted source count per selected map">${fmt(r.predicted, 1)}</td><td title="Mean true source count per selected map">${fmt(r.truth, 1)}</td>`
-            : `<td class="merger-cell"><span class="stage-badge ${r.stage === "coarse" ? "raw" : ""}">${r.stage === "coarse" ? "Raw" : "+ SMART-LEA"}</span></td><td class="metric-primary">${fmt(r.mean)}<span class="mini-bar"><span style="width:${(100 * r.mean) / max}%"></span></span></td><td>${fmt(r.median)}</td><td>${fmt(r.p90)}</td><td title="100 × (initial mean − final mean) / initial mean; positive means improvement" class="${r.improvement >= 0 ? "positive" : "negative"}">${r.stage === "coarse" ? "—" : r.improvement == null ? "—" : `${r.improvement > 0 ? "+" : ""}${fmt(r.improvement, 2)}%`}</td>`;
+            : `<td class="merger-cell"><span class="stage-badge ${r.stage === "coarse" ? "raw" : ""}">${r.stage === "coarse" ? "Raw" : "+ SMART-LEA"}</span></td><td class="metric-primary">${fmt(r.mean)}<span class="mini-bar"><span style="width:${(100 * r.mean) / max}%"></span></span></td><td title="Square root of the mean squared 3D position error">${fmt(r.rmse)}</td><td>${fmt(r.median)}</td><td>${fmt(r.p90)}</td><td title="100 × (initial mean − final mean) / initial mean; positive means improvement" class="${r.improvement >= 0 ? "positive" : "negative"}">${r.stage === "coarse" ? "—" : r.improvement == null ? "—" : `${r.improvement > 0 ? "+" : ""}${fmt(r.improvement, 2)}%`}</td>`;
           return `<tr class="${r.id === best?.id ? "row-best" : ""}"><td class="rank">${i === 0 ? '<span class="top-rank">1</span>' : i + 1}</td>${method}${number}<td>${integer(r.count)}</td></tr>`;
         })
         .join("")
-    : `<tr><td colspan="8" class="empty">No results match these filters. Try another selection.</td></tr>`;
+    : `<tr><td colspan="${columns.length + 1}" class="empty">No results match these filters. Try another selection.</td></tr>`;
   $$("[data-sort]").forEach(
     (b) =>
       (b.onclick = () => {
@@ -503,6 +506,7 @@ function renderDetail() {
       ]
     : [
         ["Mean error (m)", fmt(m.mean)],
+        ["RMSE (m)", fmt(m.rmse)],
         ["Median error (m)", fmt(m.median)],
         ["P90 error (m)", fmt(m.p90)],
         ["Initial mean (m)", fmt(m.initial)],
@@ -522,6 +526,7 @@ function exportCSV() {
       ? ["ospa", "f1", "predicted", "truth", "count"]
       : [
           "mean",
+          "rmse",
           "median",
           "p90",
           "initial",
@@ -536,6 +541,7 @@ function exportCSV() {
     truth: "mean_true_sources",
     count: state.view === "vt" ? "source_map_cases" : "query_cases",
     mean: "mean_error_m",
+    rmse: "rmse_error_m",
     median: "median_error_m",
     p90: "p90_error_m",
     initial: "initial_mean_error_m",

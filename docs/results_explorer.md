@@ -46,6 +46,8 @@ view and filters in the local URL; the server must still be running to open it.
 - Localization statistics are calculated directly from selected **3D query
   errors**, including fallback outputs. Median and P90 are not averages of
   room-level quantiles. Each query case has equal weight.
+- Localization **RMSE (m)** is `sqrt(mean(error_3d_m²))` over the selected query
+  cases. It is available in both localization tables, sorting, details and CSV export.
 - Pipeline gain is `100 × (initial mean − final mean) / initial mean` using
   the same pipeline's saved initial estimates. Positive means improvement.
 - The CDF draws up to 201 exact order statistics for display. All table and

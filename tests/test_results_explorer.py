@@ -160,6 +160,7 @@ def test_exact_quantiles_macro_f1_filters_and_track_isolation(campaign):
     local = app.rows({"view": "raw", "track": "receiver"})["rows"]
     assert len(local) == 1  # Direct NIST must never be pooled with receiver.
     assert local[0]["mean"] == 25
+    assert local[0]["rmse"] == 50  # sqrt(mean([0², 100², 0², 0²])), not mean error.
     assert local[0]["median"] == 0
     assert local[0]["p90"] == pytest.approx(70)
     assert local[0]["fallbacks"] == 1
@@ -171,12 +172,14 @@ def test_exact_quantiles_macro_f1_filters_and_track_isolation(campaign):
         {"view": "raw", "room": "room0", "noise": "40", "ap": "A", "obstacles": "1", "layout": "1"}
     )["rows"][0]
     assert selected["count"] == 1 and selected["mean"] == 100
+    assert selected["rmse"] == 100
     vt = app.rows({"view": "vt", "obstacles": "1", "layout": "1"})["rows"][0]
     assert vt["f1"] == 0.5  # Macro-F1, not pooled TP/FP/FN (0.01).
     assert vt["predicted"] == vt["truth"] == 50
     detail = app.detail({"id": local[0]["id"]})
     assert detail["rooms"][0]["count"] == 2
     assert detail["rooms"][0]["mean"] == 50
+    assert detail["rooms"][0]["rmse"] == pytest.approx(np.sqrt(5000))
     assert detail["ecdf"] == [[0, 0.75], [0, 0.75], [0, 0.75], [100, 1]]
     assert app.detail({"id": local[0]["id"], "room": "missing"})["metrics"] is None
 
