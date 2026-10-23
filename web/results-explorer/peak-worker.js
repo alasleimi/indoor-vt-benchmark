@@ -1,5 +1,12 @@
-import { firstRound, finalMatching, quality } from "./peak-matcher.js";
+import {
+  firstRound,
+  finalMatching,
+  quality,
+  summarizeFinalRoom,
+} from "./peak-matcher.js";
 const cache = new Map();
+const finalCache = new Map();
+const finalSummaries = new Map();
 async function sha(raw) {
   return [...new Uint8Array(await crypto.subtle.digest("SHA-256", raw))]
     .map((x) => x.toString(16).padStart(2, "0"))
@@ -50,6 +57,43 @@ async function condition(ap, noise) {
   ]);
   return { item, native, observed };
 }
+async function roomResult(item, native, observed, scene, scope) {
+  const first = {
+    summary: item.summary,
+    pair_counts: observed.pair_counts,
+    bins: observed.bins,
+  };
+  if (scope !== "final") return first;
+  const key = item.data.file;
+  if (!finalCache.has(key)) {
+    const pending = (async () => {
+      const profiles = observed.profiles.map((p, i) => ({
+        ranges: p.ranges,
+        source_ids: p.native_indices.map(
+          (k) => native.profiles[i].source_ids[k],
+        ),
+      }));
+      const result = await summarizeFinalRoom(
+        profiles,
+        scene.pairs,
+        () => new Promise((resolve) => setTimeout(resolve, 0)),
+      );
+      const summary = { ...item.summary, ...result.summary };
+      finalSummaries.set(key, summary);
+      return { ...result, summary };
+    })();
+    while (finalCache.size >= 3)
+      finalCache.delete(finalCache.keys().next().value);
+    finalCache.set(key, pending);
+    pending.catch(() => {
+      if (finalCache.get(key) === pending) finalCache.delete(key);
+    });
+  }
+  const pending = finalCache.get(key);
+  finalCache.delete(key);
+  finalCache.set(key, pending);
+  return { ...(await pending), bins: observed.bins };
+}
 self.onmessage = async ({ data: message }) => {
   const { id, action, args = {} } = message;
   try {
@@ -58,14 +102,23 @@ self.onmessage = async ({ data: message }) => {
     const scene = await scenePromise;
     let result;
     if (action === "init") result = { meta, scene };
-    else {
+    else if (action === "summaries") {
+      result = [];
+      for (const item of meta.conditions) {
+        let summary = item.summary;
+        if (args.matches === "final") {
+          if (!finalSummaries.has(item.data.file)) {
+            const { native, observed } = await condition(item.ap, item.noise);
+            await roomResult(item, native, observed, scene, "final");
+          }
+          summary = finalSummaries.get(item.data.file);
+        }
+        result.push({ ap: item.ap, noise: item.noise, summary });
+      }
+    } else {
       const { item, native, observed } = await condition(args.ap, args.noise);
       if (action === "condition")
-        result = {
-          summary: item.summary,
-          pair_counts: observed.pair_counts,
-          bins: observed.bins,
-        };
+        result = await roomResult(item, native, observed, scene, args.matches);
       else if (action === "pair") {
         const [left, right] = [Number(args.left), Number(args.right)].sort(
           (a, b) => a - b,

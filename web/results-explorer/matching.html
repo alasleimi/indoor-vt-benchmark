@@ -98,9 +98,17 @@
               Loading first-round matching statistics…
             </p>
           </div>
-          <button id="export-room" class="button subtle" disabled>
-            Export room summary
-          </button>
+          <div class="room-actions">
+            <label
+              >Matching stage<select id="room-match-scope" disabled>
+                <option value="first">First-round matches</option>
+                <option value="final">Final matches (all rounds)</option>
+              </select></label
+            >
+            <button id="export-room" class="button subtle" disabled>
+              Export room summary
+            </button>
+          </div>
         </div>
         <div id="room-metrics" class="match-metrics" aria-live="polite"></div>
         <details class="matching-explanation">
@@ -118,7 +126,9 @@
                 Counts are pooled over every unique fingerprint pair used by
                 local MPUrge across the room. A missed correspondence includes a
                 true pair lost during size unification. This is peak identity
-                matching, not the map’s 0.5 m F1 tolerance.
+                matching, not the map’s 0.5 m F1 tolerance. Metrics and pair
+                ordering follow the selected matching stage; the reliability
+                chart always uses first-round dissimilarities.
               </p>
               <p id="correlation-note"></p>
               <p>
@@ -178,8 +188,8 @@
             </select></label
           >
           <p>
-            Changes the circles and pair metrics. Matrix scores, room summaries,
-            and pair ordering stay first-round.
+            Changes the circles, pair and room metrics, and pair ordering. All
+            displayed dissimilarity scores stay first-round.
           </p>
         </div>
         <div class="pair-context">

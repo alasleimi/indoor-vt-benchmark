@@ -159,3 +159,55 @@ export function quality(a, b, matches) {
     f1: predicted + available ? (2 * tp) / (predicted + available) : 0,
   };
 }
+
+// Aggregate final decisions while measuring their reliability with round-1 scores.
+// Retain counts only; full matrices and match lists are discarded after each pair.
+export async function summarizeFinalRoom(
+  profiles,
+  pairs,
+  yieldNow = async () => {},
+) {
+  const pair_counts = [];
+  let tp = 0,
+    predicted = 0,
+    available = 0;
+  let sx = 0,
+    sxx = 0,
+    sxy = 0;
+  for (let k = 0; k < pairs.length; k++) {
+    const [left, right] = pairs[k],
+      a = profiles[left],
+      b = profiles[right];
+    const matrix = firstRound(a.ranges, b.ranges);
+    const final = finalMatching(a.ranges, b.ranges, matrix);
+    const q = quality(a, b, final.matches);
+    pair_counts.push([q.tp, final.matches.length, q.available]);
+    tp += q.tp;
+    predicted += final.matches.length;
+    available += q.available;
+    for (const [i, j] of final.matches) {
+      const x = matrix.values[i * b.ranges.length + j];
+      sx += x;
+      sxx += x * x;
+      if (a.source_ids[i] === b.source_ids[j]) sxy += x;
+    }
+    if ((k + 1) % 128 === 0) await yieldNow();
+  }
+  const denominator = (predicted * sxx - sx * sx) * (predicted * tp - tp * tp);
+  return {
+    pair_counts,
+    summary: {
+      tp,
+      fp: predicted - tp,
+      fn: available - tp,
+      precision: predicted ? tp / predicted : 0,
+      recall: available ? tp / available : 0,
+      f1: predicted + available ? (2 * tp) / (predicted + available) : 0,
+      pairs: pairs.length,
+      accepted_correlation:
+        denominator > 0
+          ? (predicted * sxy - sx * tp) / Math.sqrt(denominator)
+          : null,
+    },
+  };
+}

@@ -7,8 +7,11 @@ The horizontal and vertical headers show ordered peaks, ranges and native gain.
 Each matrix cell always shows **first-round** dissimilarity (lower is better).
 The **Match overlay** selector switches circles between first-round matches and
 final matches from all rounds; squares mark shared true source identity. Both
-shapes indicate a correct match. Pair metrics follow the selected overlay;
-room summaries, reliability charts and pair ordering remain first-round.
+shapes indicate a correct match. The room's **Matching stage** selector and the
+pair's **Match overlay** selector stay synchronized. Room/pair metrics and pair
+ordering follow the selection. Reliability plots always use first-round scores;
+the accepted-match correlation uses the selected stage's matches with those
+same first-round scores.
 Grey cells were excluded by size unification and retain their ground-truth
 markers. Clicking a final match reports its acceptance round while retaining
 the first-round score breakdown. The overlay is preserved in copied view links.
@@ -29,7 +32,10 @@ seeds reproduce noisy-peak rejection and sorting exactly. Source labels and
 gains are evaluation/display data only. Circles use the existing reciprocal
 matching and order-check interpretation. The browser implementation is checked
 against Python outputs; it runs in its own worker and caches at most three
-decoded packs. Only the selected condition is loaded.
+decoded packs and three sets of final per-pair counts. Final room statistics
+are calculated on demand without retaining matrices. Only the selected condition
+is loaded during browsing; room CSV export processes all 20 AP/noise conditions
+in the selected stage and marks the matching scope and score round explicitly.
 
 The additional published snapshot is about **1.57 MiB**, with all compressed
 packs in Git LFS. It stores fingerprints once, not all pairwise matrices.

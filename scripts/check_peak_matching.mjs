@@ -11,7 +11,7 @@ const source = fs.readFileSync(
   path.join(root, "web/results-explorer/peak-matcher.js"),
   "utf8",
 );
-const { firstRound, finalMatching, quality } = await import(
+const { firstRound, finalMatching, quality, summarizeFinalRoom } = await import(
   "data:text/javascript;base64," + Buffer.from(source).toString("base64")
 );
 const index = JSON.parse(
@@ -68,6 +68,14 @@ for (const condition of index.conditions) {
     (c) => c.ap === condition.ap && c.noise === condition.noise,
   );
   if (finalFixtures) assert.ok(finalExpected);
+  if (finalExpected) {
+    const aggregate = await summarizeFinalRoom(profiles, scene.pairs);
+    assert.deepEqual(aggregate.pair_counts, finalExpected.pair_counts);
+    for (const [key, value] of Object.entries(finalExpected.summary))
+      value == null
+        ? assert.equal(aggregate.summary[key], null)
+        : near(aggregate.summary[key], value);
+  }
   for (let id = 0; id < scene.pairs.length; id++) {
     const [left, right] = scene.pairs[id],
       a = profiles[left],
@@ -131,6 +139,10 @@ for (const condition of index.conditions) {
   );
 }
 assert.deepEqual(firstRound([], []).matches, []);
+assert.equal(
+  (await summarizeFinalRoom([], [])).summary.accepted_correlation,
+  null,
+);
 for (const f of finalFixtures?.special ?? [])
   assert.deepEqual(finalMatching(f.a, f.b).matches, f.matches);
 console.log(

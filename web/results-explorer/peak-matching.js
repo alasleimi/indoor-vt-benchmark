@@ -95,6 +95,7 @@ function enablePairs(value) {
     "next-pair",
     "export-pair",
     "match-overlay",
+    "room-match-scope",
   ])
     $("#" + id).disabled = !value;
 }
@@ -103,8 +104,15 @@ function metric(label, value) {
 }
 function renderRoom() {
   const m = condition.summary;
+  $("#room-match-scope").value = state.matches;
+  $("#room-summary-title").textContent =
+    `Across the room · ${finalOverlay() ? "final matching" : "first round"}`;
+  $("#pair-order option[value=worst]").textContent =
+    `Lowest ${finalOverlay() ? "final" : "first-round"} F1`;
+  $("#pair-order option[value=best]").textContent =
+    `Highest ${finalOverlay() ? "final" : "first-round"} F1`;
   $("#room-summary-note").textContent =
-    `AP ${state.ap} · σ = ${state.noise} m · All ${num(m.pairs, 0)} unique pairs in the room’s nearest-10 neighborhoods · Round 1 only`;
+    `AP ${state.ap} · σ = ${state.noise} m · All ${num(m.pairs, 0)} unique pairs in the room’s nearest-10 neighborhoods · ${finalOverlay() ? "Final matches from all rounds" : "Round 1 only"}`;
   $("#room-metrics").innerHTML = [
     ["Precision", pct(m.precision)],
     ["Recall", pct(m.recall)],
@@ -116,7 +124,7 @@ function renderRoom() {
     .map(([k, v]) => metric(k, v))
     .join("");
   $("#correlation-note").innerHTML =
-    `<strong>Correlation of δ with same-source truth:</strong> ${num(m.candidate_correlation, 3)} across all ${num(m.candidate_cells, 0)} candidate cells; ${num(m.accepted_correlation, 3)} among accepted matches. Negative is the intended direction. These populations differ: an absolute δ is not a calibrated probability of a correct accepted match.`;
+    `<strong>Correlation of first-round δ with same-source truth:</strong> ${num(m.candidate_correlation, 3)} across all ${num(m.candidate_cells, 0)} candidate cells; ${num(m.accepted_correlation, 3)} among ${finalOverlay() ? "final" : "first-round"} accepted matches. Both use round-1 scores. Negative is the intended direction. These populations differ: an absolute δ is not a calibrated probability of a correct accepted match.`;
   const max = Math.max(0.25, ...condition.bins.map((b) => b[0] + 0.25));
   const x = (v) => 45 + (v / max) * 400,
     y = (v) => 205 - v * 1.7;
@@ -147,22 +155,36 @@ function orderPairs() {
       (a, b) => (f1(a) - f1(b)) * (mode === "best" ? -1 : 1) || a - b,
     );
 }
-async function loadCondition() {
+async function loadCondition(keepPair = false) {
   const current = ++version;
   ++pairVersion;
+  const selected = keepPair ? $("#matrix-content button.selected") : null;
+  const cell = selected
+    ? [Number(selected.dataset.i), Number(selected.dataset.j)]
+    : null;
   $("#matching-error").hidden = true;
   enablePairs(false);
   $("#export-room").disabled = true;
   $("#matrix-scroll").setAttribute("aria-busy", "true");
-  $("#matrix-content").replaceChildren();
+  if (!keepPair) $("#matrix-content").replaceChildren();
   $("#room-metrics").replaceChildren();
   $("#reliability-chart").replaceChildren();
-  $("#pair-location").replaceChildren();
-  $("#room-summary-note").textContent =
-    "Loading selected AP and noise condition…";
-  $("#pair-status").textContent = "Loading fingerprints…";
-  $("#pair-metrics").replaceChildren();
-  $("#cell-detail").textContent = "Loading selected condition…";
+  $("#room-summary-title").textContent =
+    `Across the room · ${finalOverlay() ? "final matching" : "first round"}`;
+  $("#room-match-scope").value = state.matches;
+  $("#match-overlay").value = state.matches;
+  $("#room-summary-note").textContent = finalOverlay()
+    ? "Computing final matching across the room…"
+    : "Loading selected AP and noise condition…";
+  if (!keepPair) {
+    $("#pair-location").replaceChildren();
+    $("#pair-status").textContent = "Loading fingerprints…";
+    $("#pair-metrics").replaceChildren();
+    $("#cell-detail").textContent = "Loading selected condition…";
+  } else {
+    renderPair();
+    if (cell) selectCell(...cell);
+  }
   $("#match-ap").value = state.ap;
   $("#match-noise").value = String(state.noise);
   try {
@@ -172,7 +194,12 @@ async function loadCondition() {
     renderRoom();
     orderPairs();
     $("#export-room").disabled = false;
-    await loadPair();
+    if (keepPair) {
+      renderPair();
+      if (cell) selectCell(...cell);
+      enablePairs(true);
+      $("#matrix-scroll").setAttribute("aria-busy", "false");
+    } else await loadPair();
   } catch (e) {
     if (current === version) error(e);
   }
@@ -181,6 +208,7 @@ async function loadPair() {
   const current = ++pairVersion;
   $("#export-pair").disabled = true;
   $("#match-overlay").disabled = true;
+  $("#room-match-scope").disabled = true;
   [state.left, state.right] = [state.left, state.right].sort((a, b) => a - b);
   $("#reference-left").value = String(state.left);
   $("#reference-right").value = String(state.right);
@@ -349,11 +377,16 @@ function download(name, fields, rows) {
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
-$("#export-room").onclick = () => {
+$("#export-room").onclick = async () => {
+  const scope = state.matches;
+  const button = $("#export-room");
+  button.disabled = true;
+  button.textContent = "Preparing all conditions…";
   const fields = [
     "ap",
     "noise_sigma_m",
-    "round",
+    "score_round",
+    "matching_scope",
     "pairs",
     "tp",
     "fp",
@@ -364,21 +397,31 @@ $("#export-room").onclick = () => {
     "candidate_correlation",
     "accepted_correlation",
   ];
-  download(
-    "rectangle-01-first-round-matching.csv",
-    fields,
-    meta.conditions.map((c) =>
-      fields.map((k) =>
-        k === "ap"
-          ? c.ap
-          : k === "noise_sigma_m"
-            ? c.noise
-            : k === "round"
-              ? 1
-              : c.summary[k],
+  try {
+    const summaries = await request("summaries", { matches: scope });
+    download(
+      `rectangle-01-${scope}-matching.csv`,
+      fields,
+      summaries.map((c) =>
+        fields.map((k) =>
+          k === "ap"
+            ? c.ap
+            : k === "noise_sigma_m"
+              ? c.noise
+              : k === "score_round"
+                ? 1
+                : k === "matching_scope"
+                  ? scope
+                  : c.summary[k],
+        ),
       ),
-    ),
-  );
+    );
+  } catch (e) {
+    error(e);
+  } finally {
+    button.textContent = "Export room summary";
+    button.disabled = false;
+  }
 };
 $("#export-pair").onclick = () => {
   const { a, b, matrix: m } = pair,
@@ -446,16 +489,12 @@ $("#copy-matching").onclick = async () => {
     $("#copy-matching").textContent = "Copy this page’s address";
   }
 };
-$("#match-overlay").onchange = () => {
-  const selected = $("#matrix-content button.selected");
-  const cell = selected
-    ? [Number(selected.dataset.i), Number(selected.dataset.j)]
-    : null;
-  state.matches = $("#match-overlay").value;
-  saveLocation();
-  renderPair();
-  if (cell) selectCell(...cell);
-};
+for (const id of ["match-overlay", "room-match-scope"])
+  $("#" + id).onchange = () => {
+    state.matches = $("#" + id).value;
+    saveLocation();
+    loadCondition(true);
+  };
 for (const id of ["match-ap", "match-noise"])
   $("#" + id).onchange = () => {
     state.ap = $("#match-ap").value;
