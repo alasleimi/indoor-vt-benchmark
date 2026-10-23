@@ -170,6 +170,19 @@
   padding: 12px 0;
   border-top: 1px solid var(--line);
 }
+.overlay-control {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  margin-top: 18px;
+}
+.overlay-control p {
+  flex: 1 1 220px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
 .matrix-legend,
 .matrix-options {
   display: flex;

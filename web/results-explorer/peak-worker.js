@@ -1,4 +1,4 @@
-import { firstRound, quality } from "./peak-matcher.js";
+import { firstRound, finalMatching, quality } from "./peak-matcher.js";
 const cache = new Map();
 async function sha(raw) {
   return [...new Uint8Array(await crypto.subtle.digest("SHA-256", raw))]
@@ -91,13 +91,16 @@ self.onmessage = async ({ data: message }) => {
         };
         const a = profile(left),
           b = profile(right),
-          matrix = firstRound(a.ranges, b.ranges);
+          matrix = firstRound(a.ranges, b.ranges),
+          final = finalMatching(a.ranges, b.ranges, matrix);
         result = {
           a,
           b,
           matrix,
+          final,
           sources: native.sources,
           quality: quality(a, b, matrix.matches),
+          finalQuality: quality(a, b, final.matches),
         };
       } else throw Error("Unknown matching request.");
     }

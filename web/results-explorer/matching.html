@@ -36,7 +36,7 @@
       </nav>
       <div class="sidebar-note">
         <span class="status-dot"></span> Matching diagnostic
-        <p>Standard MPUrge<br />First round · Direct NIST</p>
+        <p>Standard MPUrge<br />First-round scores · Direct NIST</p>
       </div>
       <div class="sidebar-bottom">
         <span>CALIBRATION ROOM</span><strong>Rectangle 01</strong>
@@ -50,8 +50,8 @@
           <div class="eyebrow">INDOOR POSITIONING / MATCHING</div>
           <h1>Pairwise peak matching</h1>
           <p>
-            Inspect the first decision made by MPUrge, one pair of fingerprints
-            at a time.
+            Inspect MPUrge matches against first-round scores, one pair of
+            fingerprints at a time.
           </p>
         </div>
         <button class="button subtle" id="copy-matching">
@@ -59,11 +59,11 @@
         </button>
       </header>
       <div class="notice">
-        <span class="notice-tag">FIRST ROUND</span>
+        <span class="notice-tag">FIRST-ROUND SCORES</span>
         <p>
           <strong>Rectangle 01 · Direct NIST · Standard MPUrge.</strong> Lower
-          dissimilarity δ is better. Circles show only matches accepted in round
-          1; later rounds are not included.
+          dissimilarity δ is better. Choose first-round or final matches below;
+          the displayed scores always stay at round 1.
         </p>
       </div>
       <div id="matching-error" class="matching-error" role="alert" hidden></div>
@@ -93,7 +93,7 @@
       <section class="match-card" aria-labelledby="room-summary-title">
         <div class="match-section-heading">
           <div>
-            <h2 id="room-summary-title">Across the room</h2>
+            <h2 id="room-summary-title">Across the room · first round</h2>
             <p id="room-summary-note">
               Loading first-round matching statistics…
             </p>
@@ -170,6 +170,18 @@
             </select></label
           >
         </div>
+        <div class="overlay-control">
+          <label
+            >Match overlay<select id="match-overlay" disabled>
+              <option value="first">First-round matches</option>
+              <option value="final">Final matches (all rounds)</option>
+            </select></label
+          >
+          <p>
+            Changes the circles and pair metrics. Matrix scores, room summaries,
+            and pair ordering stay first-round.
+          </p>
+        </div>
         <div class="pair-context">
           <div id="pair-metrics" class="pair-stats"></div>
           <div
@@ -233,21 +245,25 @@
             MPUrge first equalizes profile lengths with ordered subset matching,
             then calculates δ = 0.5 × range difference + 0.5 × pattern
             discrepancy. It identifies reciprocal best choices and applies the
-            order cross-check. A circle means the pair passed both decisions in
-            this first round. A square means the peaks share a true source,
+            order cross-check. A circle marks an accepted match in the selected
+            overlay. Final matches include all rounds: later rounds recompute
+            scores on the remaining peaks, but those later scores are not shown
+            in this matrix. A square means the peaks share a true source,
             including the direct-path AP.
           </p>
           <p>
             Both shapes indicate a correct accepted match. A circle alone is
-            incorrect. A square alone is a correspondence not accepted in this
-            round. Unscored grey cells retain truth markers so exclusions stay
-            visible. Matrices use the lower survey index as the horizontal
-            fingerprint, matching the room evaluation.
+            incorrect. A square alone is a correspondence not accepted in the
+            selected overlay. Unscored grey cells retain truth markers so
+            exclusions stay visible. Matrices use the lower survey index as the
+            horizontal fingerprint, matching the room evaluation.
           </p>
         </details>
       </section>
       <footer class="page-footer">
-        <span>Calibration diagnostic · first-round results only</span
+        <span
+          >Calibration diagnostic · first-round scores · selectable match
+          overlay</span
         ><a
           href="https://github.com/alasleimi/indoor-vt-benchmark"
           target="_blank"

@@ -11,7 +11,7 @@ const source = fs.readFileSync(
   path.join(root, "web/results-explorer/peak-matcher.js"),
   "utf8",
 );
-const { firstRound, quality } = await import(
+const { firstRound, finalMatching, quality } = await import(
   "data:text/javascript;base64," + Buffer.from(source).toString("base64")
 );
 const index = JSON.parse(
@@ -44,9 +44,15 @@ const fixtureFile = path.join(
 const fixtures = fs.existsSync(fixtureFile)
   ? JSON.parse(fs.readFileSync(fixtureFile))
   : [];
+const finalArgument = process.argv.indexOf("--final-fixture");
+const finalFixtures =
+  finalArgument >= 0
+    ? JSON.parse(gunzipSync(fs.readFileSync(process.argv[finalArgument + 1])))
+    : null;
 let pairsChecked = 0,
   cellsChecked = 0,
-  fixturesChecked = 0;
+  fixturesChecked = 0,
+  finalChecked = 0;
 for (const condition of index.conditions) {
   const data = unpack(condition.data),
     native = natives[condition.ap];
@@ -58,12 +64,26 @@ for (const condition of index.conditions) {
     fp = 0,
     fn = 0;
   const bins = new Map();
+  const finalExpected = finalFixtures?.conditions.find(
+    (c) => c.ap === condition.ap && c.noise === condition.noise,
+  );
+  if (finalFixtures) assert.ok(finalExpected);
   for (let id = 0; id < scene.pairs.length; id++) {
     const [left, right] = scene.pairs[id],
       a = profiles[left],
       b = profiles[right];
     const m = firstRound(a.ranges, b.ranges),
       q = quality(a, b, m.matches);
+    if (finalExpected) {
+      const final = finalMatching(a.ranges, b.ranges, m);
+      assert.deepEqual(final.matches, finalExpected.matches[id]);
+      assert.deepEqual(final.matches.slice(0, m.matches.length), m.matches);
+      assert.equal(
+        final.rounds.filter((r) => r === 1).length,
+        m.matches.length,
+      );
+      finalChecked++;
+    }
     assert.deepEqual(
       [q.tp, m.matches.length, q.available],
       data.pair_counts[id],
@@ -111,6 +131,8 @@ for (const condition of index.conditions) {
   );
 }
 assert.deepEqual(firstRound([], []).matches, []);
+for (const f of finalFixtures?.special ?? [])
+  assert.deepEqual(finalMatching(f.a, f.b).matches, f.matches);
 console.log(
-  `PASS: ${pairsChecked} pairs; ${cellsChecked} cell bins; ${fixturesChecked} bit-for-bit Python matrix fixtures.`,
+  `PASS: ${pairsChecked} pairs; ${cellsChecked} cell bins; ${fixturesChecked} bit-for-bit Python matrix fixtures; ${finalChecked} exact final match lists.`,
 );

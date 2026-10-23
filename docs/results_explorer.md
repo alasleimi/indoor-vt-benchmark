@@ -4,10 +4,16 @@ The **Peak matching** navigation link opens a first-round diagnostic for
 standard MPUrge on **Rectangle 01** (`rectangle_calibration_00`), Direct NIST
 only. Choose AP A or B, any existing noise level, and two survey fingerprints.
 The horizontal and vertical headers show ordered peaks, ranges and native gain.
-Each matrix cell shows dissimilarity (lower is better); circles mark accepted
-first-round matches and squares mark shared true source identity. Both shapes
-indicate a correct match. Grey cells were excluded by size unification and
-retain their ground-truth markers. No later-round matches are overlaid.
+Each matrix cell always shows **first-round** dissimilarity (lower is better).
+The **Match overlay** selector switches circles between first-round matches and
+final matches from all rounds; squares mark shared true source identity. Both
+shapes indicate a correct match. Pair metrics follow the selected overlay;
+room summaries, reliability charts and pair ordering remain first-round.
+Grey cells were excluded by size unification and retain their ground-truth
+markers. Clicking a final match reports its acceptance round while retaining
+the first-round score breakdown. The overlay is preserved in copied view links.
+Pair CSV includes the score round, selected scope, both acceptance flags, and
+the acceptance round.
 
 The room summary pools TP/FP/FN over the 4,167 distinct fingerprint pairs in
 the nearest-10-reference neighborhoods, separately for each AP/noise condition.
@@ -28,8 +34,11 @@ decoded packs. Only the selected condition is loaded.
 The additional published snapshot is about **1.57 MiB**, with all compressed
 packs in Git LFS. It stores fingerprints once, not all pairwise matrices.
 Rebuild it with `python scripts/build_peak_matching.py` in the scientific
-environment; verify the browser matcher with `node scripts/check_peak_matching.mjs`.
-Neither command changes the estimator or regenerates NIST data.
+environment; verify the first-round scores with `node scripts/check_peak_matching.mjs`.
+Run `python scripts/check_peak_matching.py` in the scientific environment to
+also compare every final match list with production Python MPUrge. Verification
+fixtures stay under ignored `runs/`; final overlays require no extra published data.
+These commands do not change the estimator or regenerate NIST data.
 
 The same viewer is published at
 **https://alasleimi.github.io/indoor-vt-benchmark/**. GitHub Pages runs a static

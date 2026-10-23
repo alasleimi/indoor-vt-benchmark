@@ -1,4 +1,4 @@
-// First round of the standard preset only. Kept separate for Python parity checks.
+// Standard preset matching. Kept separate for Python parity checks.
 function orderedSubset(longer, target) {
   const n = longer.length,
     m = target.length;
@@ -101,6 +101,45 @@ export function firstRound(a0, b0) {
     (crosses ? rejected : matches).push(pair);
   }
   return { ia, ib, delta, values, pattern, matches, rejected };
+}
+export function finalMatching(a0, b0, initial = firstRound(a0, b0)) {
+  let ia = a0.map((_, i) => i),
+    ib = b0.map((_, i) => i),
+    current = initial,
+    round = 1;
+  const matches = [],
+    rounds = [],
+    rejected = [];
+  while (current.ia.length && current.ib.length) {
+    // Both accepted and order-rejected reciprocal candidates are removed by
+    // production MPUrge. Recheck their order against ALL earlier accepted pairs.
+    const candidates = [...current.matches, ...current.rejected]
+      .map(([i, j, cost]) => [ia[i], ib[j], cost, i, j])
+      .sort((a, b) => a[2] - b[2] || a[0] - b[0] || a[1] - b[1]);
+    if (!candidates.length) break;
+    const removedA = new Set(),
+      removedB = new Set();
+    for (const [i, j, cost, localI, localJ] of candidates) {
+      removedA.add(localI);
+      removedB.add(localJ);
+      if (matches.some(([u, v]) => (a0[i] - a0[u]) * (b0[j] - b0[v]) < 0)) {
+        rejected.push([i, j, round]);
+      } else {
+        matches.push([i, j, cost]);
+        rounds.push(round);
+      }
+    }
+    ia = current.ia.filter((i) => !removedA.has(i)).map((i) => ia[i]);
+    ib = current.ib.filter((j) => !removedB.has(j)).map((j) => ib[j]);
+    if (!ia.length || !ib.length) break;
+    // These recomputed scores drive later decisions only; the UI retains initial.
+    current = firstRound(
+      ia.map((i) => a0[i]),
+      ib.map((j) => b0[j]),
+    );
+    round++;
+  }
+  return { matches, rounds, rejected };
 }
 export function quality(a, b, matches) {
   const available = new Set(

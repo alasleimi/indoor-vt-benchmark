@@ -29,7 +29,10 @@ let serial = 0,
   ordered = [];
 const pending = new Map(),
   pairIds = new Map();
-const state = { ap: "A", noise: 0, left: 0, right: 1 };
+const state = { ap: "A", noise: 0, left: 0, right: 1, matches: "first" };
+const finalOverlay = () => state.matches === "final";
+const selectedMatches = () =>
+  finalOverlay() ? pair.final.matches : pair.matrix.matches;
 function request(action, args = {}) {
   return new Promise((resolve, reject) => {
     const id = ++serial;
@@ -62,6 +65,7 @@ function saveLocation() {
 }
 function readLocation() {
   const q = new URLSearchParams(location.hash.slice(1));
+  state.matches = q.get("matches") === "final" ? "final" : "first";
   state.ap = ["A", "B"].includes(q.get("ap")) ? q.get("ap") : "A";
   state.noise = meta.noise_levels.includes(Number(q.get("noise")))
     ? Number(q.get("noise"))
@@ -90,6 +94,7 @@ function enablePairs(value) {
     "previous-pair",
     "next-pair",
     "export-pair",
+    "match-overlay",
   ])
     $("#" + id).disabled = !value;
 }
@@ -175,6 +180,7 @@ async function loadCondition() {
 async function loadPair() {
   const current = ++pairVersion;
   $("#export-pair").disabled = true;
+  $("#match-overlay").disabled = true;
   [state.left, state.right] = [state.left, state.right].sort((a, b) => a - b);
   $("#reference-left").value = String(state.left);
   $("#reference-right").value = String(state.right);
@@ -222,7 +228,10 @@ function sceneSVG() {
     )}<path d="M${a.join(" ")}L${b.join(" ")}" stroke="#516879"/><circle cx="${a[0]}" cy="${a[1]}" r="4" fill="#3b6c8c"/><rect x="${b[0] - 4}" y="${b[1] - 4}" width="8" height="8" fill="#9b5c2c"/><circle cx="${ap[0]}" cy="${ap[1]}" r="3" fill="#087e70"/><text x="${a[0] + 7}" y="${a[1] - 5}" font-size="9">${ref(state.left)}</text><text x="${b[0] + 7}" y="${b[1] + 12}" font-size="9">${ref(state.right)}</text><text x="${ap[0] + 5}" y="${ap[1] - 5}" font-size="9">AP ${state.ap}</text></svg>`;
 }
 function renderPair() {
-  const { a, b, matrix: m, quality: q } = pair;
+  const { a, b, matrix: m } = pair;
+  const q = finalOverlay() ? pair.finalQuality : pair.quality;
+  const matches = selectedMatches();
+  $("#match-overlay").value = state.matches;
   const id = pairIds.get(`${state.left},${state.right}`),
     position = ordered.indexOf(id);
   const separation = Math.hypot(...a.xyz.map((x, k) => x - b.xyz[k]));
@@ -233,12 +242,12 @@ function renderPair() {
     ["Pair recall", pct(q.recall)],
     ["Pair F1", pct(q.f1)],
     ["Correct / incorrect", `${q.tp} / ${q.fp}`],
-    ["Missed in round 1", q.fn],
+    [finalOverlay() ? "Missed after all rounds" : "Missed in round 1", q.fn],
   ]
     .map(([k, v]) => `<div><strong>${v}</strong><span>${k}</span></div>`)
     .join("");
   $("#pair-location").innerHTML = sceneSVG();
-  const accepted = new Set(m.matches.map(([i, j]) => `${i},${j}`));
+  const accepted = new Set(matches.map(([i, j]) => `${i},${j}`));
   const max = Math.max(1e-12, ...m.values.filter((x) => x != null));
   const maxGainA = Math.max(...a.gains),
     maxGainB = Math.max(...b.gains);
@@ -258,18 +267,19 @@ function renderPair() {
         r = Math.round(162 + 85 * shade),
         g = Math.round(201 + 50 * shade),
         blue = Math.round(227 + 26 * shade);
-      const label = `Horizontal peak ${i + 1}, vertical peak ${j + 1}; ${value == null ? "not scored" : `delta ${num(value, 6)}`}; ${matched ? "accepted match" : "not accepted"}; ${truth ? "same true source" : "different true sources"}`;
+      const label = `Horizontal peak ${i + 1}, vertical peak ${j + 1}; ${value == null ? "not scored" : `first-round delta ${num(value, 6)}`}; ${matched ? "accepted match" : "not accepted"} (${finalOverlay() ? "final matching" : "first round"}); ${truth ? "same true source" : "different true sources"}`;
       html += `<td class="${value == null ? "excluded" : ""}"><button type="button" class="${matched ? "matched " : ""}${truth ? "true-pair" : ""}" style="background:rgb(${r},${g},${blue})" data-i="${i}" data-j="${j}" tabindex="${i === 0 && j === 0 ? 0 : -1}" aria-label="${label}" title="${label}"><span class="cell-value">${value == null ? "—" : num(value, 2)}</span></button></td>`;
     }
     html += "</tr>";
   }
   $("#matrix-content").innerHTML = html + "</tbody></table>";
-  $("#heatmap-range").textContent = `δ = 0 → ${num(max)} (lower is better)`;
+  $("#heatmap-range").textContent =
+    `Round-1 δ = 0 → ${num(max)} (lower is better)`;
   const excluded =
     a.ranges.length - m.ia.length + b.ranges.length - m.ib.length;
   $("#matrix-caption").textContent =
-    `${a.ranges.length} horizontal peaks × ${b.ranges.length} vertical peaks · ${excluded} excluded by size unification. Peaks are ordered by range; header spacing is uniform. Bars show native gain on a relative dB scale.`;
-  const first = m.matches[0] ?? [0, 0];
+    `Circles: ${finalOverlay() ? "final matches (all rounds)" : "first-round matches"}. Values and colors: first-round δ. ${a.ranges.length} horizontal peaks × ${b.ranges.length} vertical peaks · ${excluded} excluded by size unification. Peaks are ordered by range; header spacing is uniform. Bars show native gain on a relative dB scale.`;
+  const first = matches[0] ?? [0, 0];
   selectCell(first[0], first[1], false);
 }
 function sourceLabel(id) {
@@ -290,16 +300,28 @@ function selectCell(i, j, focus = false) {
   const { a, b, matrix: m } = pair,
     value = m.values[i * b.ranges.length + j],
     pattern = m.pattern[i * b.ranges.length + j];
-  const matched = m.matches.some(([x, y]) => x === i && y === j),
+  const matched = selectedMatches().some(([x, y]) => x === i && y === j),
     rejected = m.rejected.some(([x, y]) => x === i && y === j),
     same = a.source_ids[i] === b.source_ids[j];
+  const finalIndex = pair.final.matches.findIndex(
+    ([x, y]) => x === i && y === j,
+  );
+  const finalRejected = pair.final.rejected.find(
+    ([x, y]) => x === i && y === j,
+  );
   let decision = matched
-    ? "Accepted in round 1"
-    : rejected
-      ? "Reciprocal candidate rejected by the order check"
-      : value == null
+    ? `Accepted in round ${finalOverlay() ? pair.final.rounds[finalIndex] : 1}`
+    : finalOverlay()
+      ? value == null
         ? "Excluded by size unification"
-        : "Not a reciprocal-best candidate";
+        : finalRejected
+          ? `Reciprocal candidate rejected by the order check in round ${finalRejected[2]}`
+          : "Not accepted in the final matching"
+      : rejected
+        ? "Reciprocal candidate rejected by the order check"
+        : value == null
+          ? "Excluded by size unification"
+          : "Not a reciprocal-best candidate";
   $("#cell-detail").innerHTML =
     `<h3>${ref(state.left)} peak ${i + 1} ↔ ${ref(state.right)} peak ${j + 1} · ${same ? "Same true source" : "Different true sources"}</h3><p>${decision}.</p><div class="cell-facts">${[
       [a, i],
@@ -311,7 +333,7 @@ function selectCell(i, j, focus = false) {
       )
       .join(
         "",
-      )}</div>${value == null ? "<p>No dissimilarity was calculated for this cell.</p>" : `<p class="score-formula">δ = 0.5 × ${num(Math.abs(a.ranges[i] - b.ranges[j]), 6)} + 0.5 × ${num(pattern, 6)} = <strong>${num(value, 6)}</strong><br/><small>Absolute range difference + unnormalized pattern discrepancy. The pattern uses five-peak windows after size unification.</small></p>`}`;
+      )}</div>${value == null ? "<p>No dissimilarity was calculated for this cell.</p>" : `<p class="score-formula">First-round δ = 0.5 × ${num(Math.abs(a.ranges[i] - b.ranges[j]), 6)} + 0.5 × ${num(pattern, 6)} = <strong>${num(value, 6)}</strong><br/><small>Absolute range difference + unnormalized pattern discrepancy. The pattern uses five-peak windows after size unification. This stays at round 1 even for matches accepted later.</small></p>`}`;
 }
 function download(name, fields, rows) {
   const quote = (x) => '"' + String(x ?? "").replaceAll('"', '""') + '"';
@@ -368,6 +390,7 @@ $("#export-pair").onclick = () => {
         state.ap,
         state.noise,
         1,
+        state.matches,
         a.reference,
         b.reference,
         i + 1,
@@ -376,17 +399,23 @@ $("#export-pair").onclick = () => {
         b.ranges[j],
         m.values[i * b.ranges.length + j],
         a.source_ids[i] === b.source_ids[j],
+        selectedMatches().some(([x, y]) => x === i && y === j),
         m.matches.some(([x, y]) => x === i && y === j),
+        pair.final.matches.some(([x, y]) => x === i && y === j),
+        pair.final.rounds[
+          pair.final.matches.findIndex(([x, y]) => x === i && y === j)
+        ] ?? "",
         sourceLabel(a.source_ids[i]),
         sourceLabel(b.source_ids[j]),
       ]);
   download(
-    `matching-${state.ap}-${state.noise}-${ref(a.reference)}-${ref(b.reference)}.csv`,
+    `matching-${state.matches}-${state.ap}-${state.noise}-${ref(a.reference)}-${ref(b.reference)}.csv`,
     [
       "room",
       "ap",
       "noise_sigma_m",
-      "round",
+      "score_round",
+      "matching_scope",
       "horizontal_survey_index",
       "vertical_survey_index",
       "horizontal_peak",
@@ -396,6 +425,9 @@ $("#export-pair").onclick = () => {
       "delta",
       "same_true_source",
       "accepted",
+      "accepted_first_round",
+      "accepted_final",
+      "accepted_in_round",
       "horizontal_source",
       "vertical_source",
     ],
@@ -413,6 +445,16 @@ $("#copy-matching").onclick = async () => {
   } catch {
     $("#copy-matching").textContent = "Copy this page’s address";
   }
+};
+$("#match-overlay").onchange = () => {
+  const selected = $("#matrix-content button.selected");
+  const cell = selected
+    ? [Number(selected.dataset.i), Number(selected.dataset.j)]
+    : null;
+  state.matches = $("#match-overlay").value;
+  saveLocation();
+  renderPair();
+  if (cell) selectCell(...cell);
 };
 for (const id of ["match-ap", "match-noise"])
   $("#" + id).onchange = () => {
