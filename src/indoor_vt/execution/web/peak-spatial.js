@@ -34,6 +34,14 @@ export function anchorRows(data, anchor) {
   return rows;
 }
 
+export function neighborhoodBoundary(data) {
+  const included = data.distance_m.filter((_, i) => data.neighborhood[i]);
+  if (!included.length) return null;
+  const max = Math.max(...included);
+  return { max, pairs: included.length,
+    excludedWithin: data.distance_m.filter((d, i) => d <= max + 1e-12 && !data.neighborhood[i]).length };
+}
+
 const labels = { precision: "Precision", recall: "Recall", f1: "F1", accuracy: "Pairwise accuracy" };
 const colors = { precision: "#2071aa", recall: "#b66b18", f1: "#087e70" };
 const fmt = (v, digits = 2) => Number(v).toLocaleString("en-US", { maximumFractionDigits: digits });
@@ -64,6 +72,7 @@ export function mountMatchingSpatial(container, { scene, request, saveLocation, 
     </div>
     <p class="spatial-caption">Distance is the 3D separation between survey positions, in meters. Within each bin, correct, selected and true matches are pooled before calculating the three metrics. All survey pairs includes diagnostic pairs outside the neighborhoods used by reconstruction.</p>
     <div class="spatial-chart" data-spatial="chart" aria-live="polite"></div>
+    <p class="spatial-caption" data-spatial="boundary"></p>
     <p class="spatial-caption" data-spatial="bin-detail">Hover a point for its counts and distance interval.</p>
     <details class="matching-explanation"><summary>What counts as correct?</summary>
       <p>A selected pair is correct when both peaks have the same true source identity. Let C be the number of correct selected pairs, M the number of selected pairs, and T the number of true pairs present in both observed fingerprints.</p>
@@ -117,8 +126,10 @@ export function mountMatchingSpatial(container, { scene, request, saveLocation, 
   function renderChart() {
     if (!data) return;
     bins = distanceBins(data, settings.matches, selected.population, selected.bin);
-    const max = Math.max(selected.bin, ...bins.map(b => b.high));
+    const boundary = neighborhoodBoundary(data);
+    const max = Math.max(selected.bin, ...bins.map(b => b.high), (boundary?.max || 0) + selected.bin * .1);
     const x = v => 58 + v / max * 780, y = v => 292 - v * 250;
+    const marker = boundary ? `<g data-neighborhood-boundary="${boundary.max}"><path d="M${x(boundary.max)} 42V292" stroke="#79539a" stroke-width="2" stroke-dasharray="2 5"/><text x="${Math.min(x(boundary.max) + 6, 832)}" y="36" text-anchor="${x(boundary.max) > 590 ? 'end' : 'start'}" fill="#79539a">Farthest neighborhood pair: ${fmt(boundary.max, 3)} m</text><title>No receiver pair beyond ${fmt(boundary.max, 6)} m is considered by this neighborhood rule. Membership is defined by shared local groups, not by distance alone.</title></g>` : '';
     let paths = "", dots = "";
     for (const key of ["precision", "recall", "f1"]) {
       if (!$(`[data-series="${key}"]`).checked) continue;
@@ -136,7 +147,8 @@ export function mountMatchingSpatial(container, { scene, request, saveLocation, 
       ${[0, .25, .5, .75, 1].map(v => `<path d="M58 ${y(v)}H838" stroke="#e2e8eb"/><text x="48" y="${y(v) + 4}" text-anchor="end">${v * 100}%</text>`).join("")}
       ${[0, 1, 2, 3, 4, 5, 6].map(i => `<text x="${x(i * max / 6)}" y="315" text-anchor="middle">${fmt(i * max / 6)}</text>`).join("")}
       <text x="58" y="22">Correct peak identities · ${selected.population === "all" ? "all survey pairs" : "MPUrge neighborhood pairs"}</text>
-      ${paths}${dots}<text x="448" y="343" text-anchor="middle">Distance between survey points (m)</text></svg>`;
+      ${paths}${marker}${dots}<text x="448" y="343" text-anchor="middle">Distance between survey points (m)</text></svg>`;
+    $('[data-spatial="boundary"]').textContent = boundary ? `Dotted line: the farthest receiver pair actually considered (${fmt(boundary.max, 3)} m). Pairs are considered when both receivers belong to at least one common nearest-neighbor group, including boundary ties. All pairs beyond this line are excluded; ${fmt(boundary.excludedWithin, 0)} pairs at or below it are also excluded by group membership. The line uses exact pair distances, not distance-bin edges.` : 'There are no eligible neighborhood pairs for this configuration.';
     $('[data-spatial="bin-detail"]').textContent = `${fmt(bins.reduce((n, b) => n + b.pairs, 0), 0)} fingerprint pairs · ${selected.bin} m bins · Hover or focus a plotted point for counts. Empty bins and undefined metrics leave gaps.`;
   }
   function showPoint(id) {
@@ -310,6 +322,7 @@ export function mountMatchingSpatial(container, { scene, request, saveLocation, 
       $('[data-spatial="inspect"]').disabled = true;
       $('[data-spatial="export"]').disabled = true;
       $('[data-spatial="chart"]').textContent = "Calculating MPUrge matches for every survey pair…";
+      $('[data-spatial="boundary"]').textContent = '';
       $('[data-spatial="condition"]').textContent = `AP ${next.ap} · σ ${next.noise} m · ${next.matches === "final" ? "Final matches (all rounds)" : "First-round matches"} · Empty room · Loading…`;
       $('[data-spatial="point-detail"]').textContent = "Loading the selected condition…";
       renderMap();

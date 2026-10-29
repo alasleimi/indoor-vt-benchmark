@@ -74,6 +74,13 @@
         </div>
         <button id="copy-link" class="button subtle">Copy view link ↗</button>
       </header>
+      <section id="vt-subtabs" class="vt-subtabs" aria-label="VT reconstruction method subsets" hidden>
+        <div class="vt-result-tabs" role="tablist" aria-label="VT reconstruction methods">
+          <button id="vt-all-tab" type="button" role="tab" data-subset="all" aria-selected="true" aria-controls="results-panel">All methods</button>
+          <button id="vt-pareto-tab" type="button" role="tab" data-subset="pareto" aria-selected="false" aria-controls="results-panel" tabindex="-1">Pareto methods</button>
+        </div>
+        <p id="pareto-note" class="pareto-note" hidden></p>
+      </section>
       <div class="notice">
         <span id="split-badge" class="notice-tag">FROZEN PARAMETERS</span>
         <p id="split-note">Loading selection and evaluation results…</p>

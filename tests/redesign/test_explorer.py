@@ -141,9 +141,12 @@ def test_ap_selection_keeps_counts_and_scores_for_the_selected_source_set():
     source = {"room": "room", "repetition": 2,
               "by_ap": {"A": np.array([[0., 0., 0.]]), "B": np.array([[10., 0., 0.]])}}
     measured = saved_stage_metrics({"sources": [source], "queries": []}, {}, truth)
-    assert measured["source_metrics_by_ap"]["A"] == {"ospa": 0., "f1": 1., "matched_rmse_m": 0.}
-    assert measured["source_metrics_by_ap"]["B"] == {"ospa": .5, "f1": 2/3, "matched_rmse_m": 0.}
-    assert measured["source_metrics_by_ap"]["A+B"] == {"ospa": 1/3, "f1": .8, "matched_rmse_m": 0.}
+    assert measured["source_metrics_by_ap"]["A"] == {
+        "ospa": 0., "f1": 1., "f1_0_1m": 1., "f1_0_3m": 1., "matched_rmse_m": 0.}
+    assert measured["source_metrics_by_ap"]["B"] == {
+        "ospa": .5, "f1": 2/3, "f1_0_1m": 2/3, "f1_0_3m": 2/3, "matched_rmse_m": 0.}
+    assert measured["source_metrics_by_ap"]["A+B"] == {
+        "ospa": 1/3, "f1": .8, "f1_0_1m": .8, "f1_0_3m": .8, "matched_rmse_m": 0.}
     assert measured["source_counts"] == [{"room": "room", "repetition": 2,
         "predicted": {"A": 1, "B": 1, "A+B": 2}, "true": {"A": 1, "B": 2, "A+B": 3}}]
     assert "true_count" not in measured["sources"]

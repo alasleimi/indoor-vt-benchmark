@@ -1,4 +1,5 @@
 import "./site-runtime.js";
+import {strictMetricWinners} from "./pareto.mjs";
 import {finisherNames, finisherParameterSummary, sourceParameters,
   hasReconstructionExplanation, reconstructionExplanation,
   connectedComponentSourceOverview, sourceMetricExplanation} from "/finisher-explanations.js";
@@ -75,6 +76,7 @@ let searchPage = 0,
   refreshing = false;
 let state = {
   view: "vt",
+  subset: "all",
   split: "evaluation",
   noise: "0",
   obstacles: "",
@@ -89,6 +91,7 @@ let state = {
   hidden: "",
   mapMode: "2d",
 };
+let paretoResult = { wins: new Map(), conditionCount: 0, comparableCells: 0 };
 const allTabs = [
   "overview",
   "map",
@@ -111,6 +114,7 @@ function readURL() {
   for (const key of Object.keys(state))
     if (query.has(key)) state[key] = query.get(key);
   if (!(state.view in viewNames)) state.view = "vt";
+  if (!["all", "pareto"].includes(state.subset)) state.subset = "all";
   if (!["evaluation", "calibration"].includes(state.split))
     state.split = "evaluation";
   if (!["", "on", "off"].includes(state.unification)) state.unification = "";
@@ -146,6 +150,7 @@ function visibleMethods() {
   return data.methods.filter(
     (m) =>
       matchesView(m) &&
+      (state.view !== "vt" || state.subset !== "pareto" || paretoResult.wins.has(m.id)) &&
       matchesTags(m) &&
       (!state.selection || m.selection === state.selection) &&
       (state.view !== "all" || !state.stage || m.group === state.stage) &&
@@ -304,6 +309,8 @@ function metricColumns(view = state.view) {
   return view === "vt"
     ? [
         ["ospa", "OSPA (c = 1 m)"],
+        ["f1_0_1m", "F1 @ 0.1 m (%)"],
+        ["f1_0_3m", "F1 @ 0.3 m (%)"],
         ["f1", "F1 @ 0.5 m (%)"],
         ["matched_rmse_m", "Matched RMSE @ 0.5 m (m)"],
       ]
@@ -343,7 +350,13 @@ function chartMetricValue(condition) {
 }
 function metricValue(key, value) {
   const places = key === "matched_rmse_m" ? 6 : key.includes("count") ? 1 : 3;
-  return fmt(key === "f1" && Number.isFinite(value) ? value * 100 : value, places);
+  return fmt(key.startsWith("f1") && Number.isFinite(value) ? value * 100 : value, places);
+}
+function metricTooltip(key) {
+  if (key === "matched_rmse_m")
+    return "For each AP and noise realization: match predicted VTs p_i to true VTs t_j in a bipartite graph. Let d_ij = ||p_i − t_j||₂, the 3D distance in metres. Only d_ij ≤ 0.5 m is eligible; each VT is used at most once. Linear assignment first maximizes the number of eligible matches, then minimizes Σ d_ij² among those assignments. RMSE = √(Σ d_ij² / N), where N is the matched-pair count pooled across the selected APs and noise realizations (not an average of their RMSEs). A and B are matched separately. Unmatched VTs are excluded; N = 0 gives —. Lower is better; read alongside F1 because missed/extra VTs do not add an RMSE penalty.";
+  const gate = { f1_0_1m: 0.1, f1_0_3m: 0.3, f1: 0.5 }[key];
+  return gate === undefined ? "" : `F1 = 2 TP / (predicted + true). Maximum one-to-one matching within ${gate} m in 3D, recomputed at this threshold separately for each AP. A+B pools AP counts; the displayed F1 averages noise realizations. Higher is better. Unavailable saved coordinates = —.`;
 }
 function receiptFor(id) {
   return (
@@ -360,6 +373,47 @@ function rowFor(method) {
       r.split === state.split &&
       r.level === Number(state.split === "calibration" ? 0 : state.noise),
   );
+}
+function paretoConditionLabel(condition) {
+  const rooms = [...new Set((condition.source_counts || []).map((record) => record.room))];
+  const population = condition.obstacle_count === undefined
+    ? "empty room · full survey"
+    : `${condition.obstacle_count} obstacles · ${condition.input_count || obstacleInputCount()} ${condition.input_protocol === "matched_survey" ? "common survey" : "layout"} positions`;
+  return `${rooms.length ? rooms.join(", ") + " · " : ""}σ ${condition.level} m · ${population}${condition.layout ? ` · ${condition.layout}` : ""}`;
+}
+function paretoConditionLink(win) {
+  const query = new URLSearchParams(state);
+  query.set("noise", String(win.condition.level));
+  query.set("obstacles", win.condition.obstacle_count === undefined ? "" : String(win.condition.obstacle_count));
+  query.set("sort", win.metric);
+  query.set("direction", win.direction === "min" ? "asc" : "desc");
+  return `${location.pathname}?${query}`;
+}
+function paretoExactValue(win, value) {
+  return win.metric.startsWith("f1") ? `${String(value * 100)}% (F1 ${String(value)})` : `${String(value)} m`;
+}
+function paretoReasons(method) {
+  const wins = paretoResult.wins.get(method.id) || [];
+  if (!wins.length) return "";
+  const reason = (win) => {
+    const runner = data.methods.find((m) => m.id === win.runnerUpMethod);
+    return `<li><strong>${esc(win.label)}</strong><br><a href="${esc(paretoConditionLink(win))}">${esc(paretoConditionLabel(win.condition))}</a><br>Best: ${esc(paretoExactValue(win, win.value))}<br>Next best: ${esc(paretoExactValue(win, win.runnerUpValue))} · ${esc(runner?.title || win.runnerUpMethod)}<br>${win.comparableMethods} methods with available values · AP ${esc(state.ap)}</li>`;
+  };
+  return `<details class="pareto-reasons"><summary>${wins.length} strict metric ${wins.length === 1 ? "win" : "wins"}</summary><ol>${wins.map(reason).join("")}</ol></details><small class="pareto-first-win">${esc(wins[0].label)} · ${esc(paretoConditionLabel(wins[0].condition))}</small>`;
+}
+function renderParetoTabs(vt) {
+  $("vt-subtabs").hidden = !vt;
+  const active = vt && state.subset === "pareto";
+  for (const button of document.querySelectorAll("[data-subset]")) {
+    const selected = button.dataset.subset === state.subset;
+    button.setAttribute("aria-selected", String(selected));
+    button.tabIndex = selected ? 0 : -1;
+  }
+  $("vt-pareto-tab").textContent = `Pareto methods (${paretoResult.wins.size})`;
+  $("pareto-note").hidden = !active;
+  if (active) {
+    $("pareto-note").textContent = `A method qualifies if it is strictly best in at least one metric at one tested noise/obstacle condition: lowest OSPA or matched RMSE, or highest F1 at 0.1, 0.3 or 0.5 m. Ties do not qualify. Oracle methods given the true VT count are excluded from both qualification and competition; they remain in All methods. We compare full-precision saved values from at least two methods on the same inputs; missing values and RMSE without matches are excluded. AP ${state.ap} · ${state.split === "evaluation" ? "evaluation" : "calibration"} · ${paretoResult.wins.size} qualifying methods across ${paretoResult.conditionCount} tested conditions. Eligibility includes every tested noise and obstacle setting for this AP/split. The filters below select which of those methods' saved results to display; they do not remove competitors from the win calculation.`;
+  }
 }
 function fillControls() {
   renderTags();
@@ -411,6 +465,10 @@ function render() {
   if (!data) return;
   const calibration = state.split === "calibration",
     vt = state.view === "vt";
+  paretoResult = vt ? strictMetricWinners(data, { ap: state.ap, split: state.split })
+    : { wins: new Map(), conditionCount: 0, comparableCells: 0 };
+  renderParetoTabs(vt);
+  const showPareto = vt && state.subset === "pareto";
   $("page-title").textContent = viewNames[state.view];
   $("page-description").textContent = descriptions[state.view];
   document.querySelectorAll("[data-view]").forEach((b) => {
@@ -494,7 +552,7 @@ function render() {
     `Ordered by ${state.sort === "name" ? "method name" : columns.find((c) => c[0] === state.sort)?.[1]} · ${state.direction === "asc" ? "ascending" : "descending"}`;
   const showSource = state.view === "all";
   const sortHeader = (key, label) =>
-    `<th class="${key === "name" ? "method-head" : ""}" aria-sort="${state.sort === key ? (state.direction === "asc" ? "ascending" : "descending") : "none"}"><button data-sort="${key}" class="${state.sort === key ? "active" : ""}">${label}${state.sort === key ? (state.direction === "asc" ? " ↑" : " ↓") : ""}</button></th>`;
+    `<th class="${key === "name" ? "method-head" : ""}" aria-sort="${state.sort === key ? (state.direction === "asc" ? "ascending" : "descending") : "none"}"><button data-sort="${key}" title="${esc(metricTooltip(key))}" aria-description="${esc(metricTooltip(key))}" class="${state.sort === key ? "active" : ""}">${label}${state.sort === key ? (state.direction === "asc" ? " ↑" : " ↓") : ""}</button></th>`;
   $("table-head").innerHTML =
     "<tr><th>#</th>" +
     sortHeader(
@@ -507,6 +565,7 @@ function render() {
     ) +
     (showSource ? '<th class="label-head">VTs supplied by</th>' : "") +
     '<th class="label-head">Parameter selection</th>' +
+    (showPareto ? '<th class="label-head">Strict wins across tested conditions</th>' : "") +
     columns.map(([key, label]) => sortHeader(key, label)).join("") +
     (vt
       ? '<th class="label-head">Predicted</th><th class="label-head">True</th>'
@@ -520,13 +579,13 @@ function render() {
     rows
       .map(
         ({ method: m, condition: r }, i) =>
-          `<tr><td class="rank">${i + 1}</td><td class="method-cell"><div class="method-identity"><button class="method-button" data-method="${m.id}" aria-label="${esc(m.title)}">${esc(displayName(m))}</button>${unificationBadge(m)}</div></td>${showSource ? `<td class="label-cell" data-column="vt-source">${esc(m.vt_source || "Not used")}</td>` : ""}<td class="label-cell" data-column="selection">${selectionBadge(m)}</td>${columns.map(([key]) => `<td data-metric="${key}" class="${key === primaryMetric() ? "metric-primary" : ""}">${metricValue(key, conditionMetric(r, key))}${key === primaryMetric() ? `<span class="mini-bar"><span style="width:${(100 * conditionMetric(r, key)) / maximum}%"></span></span>` : ""}</td>`).join("")}${vt ? `<td class="source-counts" data-count="predicted">${sourceCounts(r, "predicted")}</td><td class="source-counts" data-count="true">${sourceCounts(r, "true")}</td>` : ""}<td>${count(m.trial_count)}</td></tr>`,
+          `<tr><td class="rank">${i + 1}</td><td class="method-cell"><div class="method-identity"><button class="method-button" data-method="${m.id}" aria-label="${esc(m.title)}">${esc(displayName(m))}</button>${unificationBadge(m)}</div></td>${showSource ? `<td class="label-cell" data-column="vt-source">${esc(m.vt_source || "Not used")}</td>` : ""}<td class="label-cell" data-column="selection">${selectionBadge(m)}</td>${showPareto ? `<td class="pareto-win-cell" data-column="strict-wins">${paretoReasons(m)}</td>` : ""}${columns.map(([key]) => `<td data-metric="${key}" class="${key === primaryMetric() ? "metric-primary" : ""}">${metricValue(key, conditionMetric(r, key))}${key === primaryMetric() ? `<span class="mini-bar"><span style="width:${(100 * conditionMetric(r, key)) / maximum}%"></span></span>` : ""}</td>`).join("")}${vt ? `<td class="source-counts" data-count="predicted">${sourceCounts(r, "predicted")}</td><td class="source-counts" data-count="true">${sourceCounts(r, "true")}</td>` : ""}<td>${count(m.trial_count)}</td></tr>`,
       )
       .join("") ||
-    `<tr><td class="empty" colspan="${columns.length + 4 + Number(showSource) + 2 * Number(vt)}">No completed results match these filters.</td></tr>`;
+    `<tr><td class="empty" colspan="${columns.length + 4 + Number(showSource) + Number(showPareto) + 2 * Number(vt)}">${showPareto ? (paretoResult.wins.size ? "No qualifying methods have completed results matching these filters. Change the noise, obstacle, or method filters to see their saved results." : "No method has a strict win for this AP and split. Tied best values, missing metrics, and conditions with fewer than two comparable methods do not qualify.") : "No completed results match these filters."}</td></tr>`;
   $("export").disabled = !rows.length;
   $("metric-note").textContent = vt
-    ? `AP ${state.ap} · All metrics and counts use only this AP selection. OSPA and F1 average noise repetitions. Matched RMSE pools squared 3D distances over one-to-one matches within 0.5 m; no matches = —. Counts that vary are listed per repetition.`
+    ? `AP ${state.ap} · All metrics and counts use only this AP selection. F1 independently maximizes one-to-one matches at each 3D distance threshold: 0.1, 0.3 and 0.5 m. A+B pools counts from separate AP assignments. OSPA and F1 average noise repetitions. Matched RMSE pools squared 3D distances over one-to-one matches within 0.5 m; no matches = —. Counts that vary are listed per repetition.`
     : `${obstacleLabel()} · All metrics use saved 3D query errors, including noise repetitions. The obstacle selector also controls the chart and CSV.`;
   $("results-panel").setAttribute("aria-busy", "false");
   const best = rows
@@ -1846,7 +1905,7 @@ function exportResults() {
       "obstacle_count",
       "ap_scope",
       ...metrics,
-      ...(state.view === "vt" ? ["source_counts_by_repetition"] : []),
+      ...(state.view === "vt" ? ["source_counts_by_repetition", "pareto_strict_wins"] : []),
       "search_label",
       "trial_count",
       "receipt_id",
@@ -1884,6 +1943,19 @@ function exportResults() {
                   true: record.true[state.ap],
                 })),
               ),
+              JSON.stringify((paretoResult.wins.get(m.id) || []).map((win) => ({
+                metric: win.metric,
+                ap: state.ap,
+                split: win.condition.split,
+                noise_sigma_m: win.condition.level,
+                obstacle_count: win.condition.obstacle_count ?? "empty_room_survey",
+                input_protocol: win.condition.input_protocol || "survey",
+                condition: paretoConditionLabel(win.condition),
+                value: win.value,
+                next_best_value: win.runnerUpValue,
+                next_best_method: win.runnerUpMethod,
+                comparable_methods: win.comparableMethods,
+              }))),
             ]
           : []),
         m.label,
@@ -1939,6 +2011,22 @@ document.querySelectorAll("[data-view]").forEach(
       saveURL();
     }),
 );
+document.querySelectorAll("[data-subset]").forEach((button) => {
+  button.onclick = () => {
+    state.subset = button.dataset.subset;
+    render();
+    saveURL();
+  };
+});
+$("vt-subtabs").onkeydown = (event) => {
+  if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+  event.preventDefault();
+  const buttons = [...document.querySelectorAll("[data-subset]")];
+  const next = event.key === "Home" ? 0 : event.key === "End" ? 1
+    : (buttons.indexOf(document.activeElement) + 1) % buttons.length;
+  buttons[next].focus();
+  buttons[next].click();
+};
 for (const id of ["split", "noise", "selection", "stage", "obstacles", "ap"])
   $(id).onchange = () => {
     state[id] = $(id).value;
@@ -1978,7 +2066,7 @@ $("table-head").onclick = (e) => {
       ? state.direction === "asc"
         ? "desc"
         : "asc"
-      : b.dataset.sort === "f1"
+      : b.dataset.sort.startsWith("f1")
         ? "desc"
         : "asc";
   state.sort = b.dataset.sort;

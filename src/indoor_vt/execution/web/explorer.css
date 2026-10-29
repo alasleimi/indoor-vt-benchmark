@@ -513,6 +513,64 @@ progress {
 .method-button {
   overflow-wrap: anywhere;
 }
+.vt-subtabs {
+  margin-bottom: 18px;
+}
+.vt-result-tabs {
+  display: flex;
+  gap: 22px;
+  border-bottom: 1px solid var(--line);
+}
+.vt-result-tabs button {
+  padding: 12px 0;
+  color: var(--muted);
+  background: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  font-size: 12px;
+}
+.vt-result-tabs button[aria-selected="true"] {
+  border-color: #0e7668;
+  color: #0e7668;
+  font-weight: 650;
+}
+.pareto-note {
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
+}
+.pareto-win-cell {
+  min-width: 245px;
+  max-width: 320px;
+  white-space: normal;
+}
+.pareto-reasons summary {
+  cursor: pointer;
+  color: #0e7668;
+  font-weight: 600;
+}
+.pareto-reasons ol {
+  margin: 10px 0 0;
+  padding-left: 18px;
+  max-height: 360px;
+  overflow-y: auto;
+}
+.pareto-reasons li {
+  margin-bottom: 12px;
+  overflow-wrap: anywhere;
+  line-height: 1.65;
+}
+.pareto-first-win {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.6;
+}
+.pareto-reasons[open] + .pareto-first-win {
+  display: none;
+}
 .map-case-controls {
   display: flex;
   flex-wrap: wrap;

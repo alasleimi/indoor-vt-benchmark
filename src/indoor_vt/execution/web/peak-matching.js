@@ -1,5 +1,6 @@
 import "./site-runtime.js";
 import { mountMatchingSpatial } from "./peak-spatial.js";
+import { mountDistributions } from "./peak-distributions.js";
 const $ = (s) => document.querySelector(s);
 const esc = (s) =>
   String(s ?? "").replace(
@@ -25,7 +26,8 @@ let version = 0,
   condition,
   pair,
   ordered = [],
-  spatial;
+  spatial,
+  distributions;
 const pairIds = new Map();
 const state = { ap: "A", noise: 0, left: 0, right: 1, matches: "final" };
 const trial = new URLSearchParams(location.search).get("trial") || "";
@@ -176,6 +178,7 @@ async function loadCondition(keepPair = false) {
   $("#match-ap").value = state.ap;
   $("#match-noise").value = String(state.noise);
   spatial?.update(state);
+  distributions?.update(state);
   try {
     const result = await request("condition", state);
     if (current !== version) return;
@@ -613,6 +616,7 @@ try {
   $("#match-ap").disabled = false;
   $("#match-noise").disabled = false;
   readLocation();
+  distributions = mountDistributions($("#matching-distributions"), { request, meta });
   spatial = mountMatchingSpatial($("#matching-spatial"), {
     scene, request, saveLocation,
     inspect: (left, right) => {

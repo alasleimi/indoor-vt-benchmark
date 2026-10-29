@@ -43,7 +43,7 @@ def method_entries(receipt):
                  "vt_source": None, "tuning_pipeline": None, "selection_description": None,
                  "unification_scope": "Not applicable", "unification_label": "Unification N/A",
                  "source_full_name": name, "search_text": name + " Hungarian least squares known count",
-                 "objective": "Measured range RMSE (m)", "derived": False,
+                 "objective": "Measured range RMSE (m)", "derived": False, "oracle": True,
                  "family": "range_rmse", "finisher": None, "triangle": False, "naked": True,
                  "tags": ["family:range_rmse", "unification:n/a", "finisher:none", "matching:hungarian"],
                  "code": {"Composition constructors": [constructor_link("science/range_rmse.py", "range_rmse")],
@@ -265,13 +265,27 @@ def display_source_metrics(predicted, truth):
     return matched_source_metrics(predicted, truth)
 
 
+def display_ap_source_metrics(predicted, truth, aps=("A", "B")):
+    """Viewer metrics from saved coordinates, matching afresh at every F1 gate.
+
+    Each gate pools AP-specific true-positive and source counts before taking
+    F1. In particular, do not filter the 0.5 m assignment: a tighter gate may
+    require a different assignment to obtain the maximum valid match count.
+    """
+    metrics = ap_source_metrics(predicted, truth, aps)
+    for gate, key in ((.1, "f1_0_1m"), (.3, "f1_0_3m")):
+        metrics[key] = ap_source_metrics(predicted, truth, aps, gate=gate)["f1"]
+    return metrics
+
+
 def summarize_sources(records, truths):
     cases = {"A": [], "B": [], "A+B": []}
     for record in records:
         for aps in (("A",), ("B",), ("A", "B")):
-            metrics = ap_source_metrics(record["by_ap"], truths[record["room"]].by_ap, aps)
+            metrics = display_ap_source_metrics(record["by_ap"], truths[record["room"]].by_ap, aps)
             cases["+".join(aps)].append(metrics)
-    by_ap = {ap: {key: float(np.mean([case[key] for case in values])) for key in ("ospa", "f1")}
+    by_ap = {ap: {key: float(np.mean([case[key] for case in values]))
+                  for key in ("ospa", "f1", "f1_0_1m", "f1_0_3m")}
              for ap, values in cases.items() if values}
     for ap, metrics in by_ap.items():
         matched_count = sum(case["tp"] for case in cases[ap])

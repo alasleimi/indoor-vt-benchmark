@@ -7,6 +7,7 @@ import time
 import numpy as np
 
 from indoor_vt.execution.peak_explorer import PeakExplorer
+from indoor_vt.execution.peak_distributions import SCHEMA, dissimilarity_distributions
 from indoor_vt.science.matching import MPUrgeMatcher
 from scripts.export_viewer_snapshot import write
 
@@ -18,7 +19,8 @@ def read(name):
 def compute(condition):
     ap, noise = condition
     out = Path('published/redesign/matching-precomputed')/f'{ap}-{noise:g}.json.gz'
-    if out.exists():
+    saved = read(f'matching-precomputed/{ap}-{noise:g}') if out.exists() else {}
+    if saved.get('distributions', {}).get('schema') == SCHEMA:
         return str(out)
     start = time.perf_counter()
     init = read('matching-init')
@@ -31,8 +33,11 @@ def compute(condition):
     context = (np.array(init['scene']['survey_xyz']), np.array(init['scene']['pairs']),
                MPUrgeMatcher(half_window=p['half_window'], alpha=p['alpha'], size_unification_norm=None))
     explorer = PeakExplorer(None)
-    write(out, {'first': explorer.summary(context, data, 'first'),
-                'final': explorer.summary(context, data, 'final'), 'spatial': explorer.spatial(context, data)})
+    if not saved:
+        saved = {'first': explorer.summary(context, data, 'first'),
+                 'final': explorer.summary(context, data, 'final'), 'spatial': explorer.spatial(context, data)}
+    saved['distributions'] = dissimilarity_distributions(data['profiles'], context[-2], context[-1])
+    write(out, saved)
     return f'{ap}, sigma={noise}: {time.perf_counter()-start:.1f}s'
 
 

@@ -160,13 +160,13 @@ def reconstruct(spec, survey, evaluator, truth_count, room_id):
     return SourceMap(by_ap, audit)
 
 
-def metrics_for_record(record):
+def metrics_for_record(record, *, metric_fn=ap_source_metrics):
     result, counts = {}, {"predicted": {}, "true": {}}
     for aps in (("A",), ("B",), ("A", "B")):
         name = "+".join(aps)
         truth = {ap: np.asarray([entry["xyz"] for entry in record["truth_catalog"][ap]]).reshape(-1, 3)
                  for ap in aps}
-        result[name] = ap_source_metrics(record["by_ap"], truth, aps)
+        result[name] = metric_fn(record["by_ap"], truth, aps)
         counts["predicted"][name] = sum(len(record["by_ap"][ap]) for ap in aps)
         counts["true"][name] = sum(len(truth[ap]) for ap in aps)
     return result, {"room": record["room"], "layout": record["layout"], "repetition": 2, **counts}

@@ -62,9 +62,10 @@ if (globalThis.VT_STATIC) {
       const base=await read('matching-init'),manifest=await read('manifest');
       const precomputed=manifest.matching_precomputed && init.meta.repetition===0 &&
         ['alpha','half_window','neighbors','unify','matcher','triangle_tolerance_m'].every(k=>init.meta[k]===base.meta[k]);
-      if(precomputed && ['condition','spatial'].includes(q.action)) {
+      if(precomputed && ['condition','spatial','distributions'].includes(q.action)) {
         const saved=await read(`matching-precomputed/${q.ap||'A'}-${Number(q.noise||0)}`);
-        return saved[q.action==='spatial'?'spatial':q.matches||'first'];
+        const value = saved[q.action==='condition' ? q.matches||'first' : q.action];
+        if (value) return value;
       }
       const load=async(ap,noise)=>read(`profiles/${init.meta.repetition}-${ap}-${Number(noise)}`);
       if(q.action==='summaries') {

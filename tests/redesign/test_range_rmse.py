@@ -52,5 +52,6 @@ def test_catalog_discloses_true_count_without_claiming_calibration_tuning():
     assert "(cheating true count)" in entry["name"]
     assert entry["group"] == "vt" and entry["selection"] == "fixed"
     assert entry["unify"] is None and entry["family"] == "range_rmse"
+    assert entry["oracle"] is True
     constructor, = entry["code"]["Composition constructors"]
     assert constructor["file"] == "science/range_rmse.py" and constructor["line"] > 1

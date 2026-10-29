@@ -588,3 +588,17 @@
     font-size: 11px;
   }
 }
+/* Candidate dissimilarity distributions share raw axes and retain separate class densities. */
+.distribution-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; margin-top: 24px; }
+.distribution-panel { min-width: 0; border: 1px solid #dce5ea; border-radius: 9px; padding: 18px; }
+.distribution-panel[data-population="normalized"] { grid-column: 1 / -1; }
+.distribution-panel h3 { margin: 0 0 8px; font-size: 16px; }
+.distribution-panel > p { color: #5b6e7c; font-size: 13px; }
+.distribution-panel > p:first-of-type { min-height: 3em; }
+.distribution-chart svg { width: 100%; max-height: 365px; display: block; }
+.distribution-chart svg text { font-size: 13px; fill: #526572; }
+.distribution-chart rect:focus { outline: none; stroke: #233d50; stroke-width: 1.5; }
+.distribution-counts { display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 12px; margin: 10px 0; }
+.distribution-counts i { display: inline-block; width: 12px; height: 3px; vertical-align: middle; margin-right: 6px; }
+.distribution-formula { padding: 14px; background: #f3f6f8; line-height: 2; }
+@media (max-width: 1250px) { .distribution-grid { grid-template-columns: 1fr; } }

@@ -14,7 +14,7 @@ from .experiment import Evaluator, configurations
 from .presets import standard_mpurge, mpurge_map
 from .trials import read_trials
 from .explorer import (build_catalog, saved_stage_metrics, query_truth, localization_metrics,
-                       inside_obstacles)
+                       inside_obstacles, display_ap_source_metrics)
 from ..acquisition.records import digest, read_json
 from ..acquisition.dataset import survey_indices
 from ..science.matching import _delta
@@ -86,7 +86,8 @@ class ExperimentView:
             for row in results:
                 if row["id"] not in self.stage_summaries:
                     detail = read_npz(self.run_root / row["outcome"])[0]
-                    measured, counts = metrics_for_record(detail["sources"][0])
+                    measured, counts = metrics_for_record(detail["sources"][0],
+                                                          metric_fn=display_ap_source_metrics)
                     self.stage_summaries[row["id"]] = {"source_metrics_by_ap": measured,
                         "source_counts": [counts], "metrics": measured["A+B"], "loss": measured["A+B"]["ospa"]}
                 corrected.append({**row, **self.stage_summaries[row["id"]]})
@@ -533,13 +534,14 @@ def serve(data_root, run_root, port=8770):
                     self.end_headers()
                     self.wfile.write(path.read_bytes())
                     return
-                elif request.path in ("/", "/app.js", "/style.css", "/explorer.css", "/vt-map.js",
+                elif request.path in ("/", "/app.js", "/pareto.mjs", "/style.css", "/explorer.css", "/vt-map.js",
                         "/site-runtime.js", "/finisher-explanations.js", "/finisher-explanations.css",
-                        "/matching.html", "/peak-matching.js", "/peak-matching.css", "/peak-spatial.js",
+                        "/matching.html", "/peak-matching.js", "/peak-matching.css", "/peak-spatial.js", "/peak-distributions.js",
                         "/true-matching.html", "/true-matching.js", "/true-matching.css") and not post:
                     name = "index.html" if request.path == "/" else request.path[1:]
                     content = (asset_root / name).read_bytes()
-                    mime = {"html": "text/html", "js": "text/javascript", "css": "text/css"}[name.rsplit(".", 1)[1]]
+                    mime = {"html": "text/html", "js": "text/javascript", "mjs": "text/javascript",
+                            "css": "text/css"}[name.rsplit(".", 1)[1]]
                     self.send_response(200)
                     self.send_header("Content-Type", mime + "; charset=utf-8")
                     self.send_header("Cache-Control", "no-store")

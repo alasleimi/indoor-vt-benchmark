@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import assert from "node:assert/strict";
 const source = await readFile(new URL("../../src/indoor_vt/execution/web/peak-spatial.js", import.meta.url), "utf8");
-const { matchingMetrics, distanceBins, anchorRows } = await import(`data:text/javascript;base64,${Buffer.from(source).toString("base64")}`);
+const { matchingMetrics, distanceBins, anchorRows, neighborhoodBoundary } = await import(`data:text/javascript;base64,${Buffer.from(source).toString("base64")}`);
 
 const m = matchingMetrics([6, 8, 10, 100]);
 assert.equal(m.precision, .75);
@@ -28,4 +28,12 @@ assert.equal(bins[1].f1, null);
 assert.equal(distanceBins(data, "final", "all", .5)[0].f1, 14 / 24);
 assert.equal(distanceBins(data, "first", "neighborhood", .5)[0].precision, 1);
 assert.deepEqual([...anchorRows(data, 2)], [[0, 1], [1, 2]]); // Anchor may be either endpoint.
+assert.deepEqual(neighborhoodBoundary(data), { max: .5, pairs: 2, excludedWithin: 1 });
+assert.equal(neighborhoodBoundary({ distance_m: [1], neighborhood: [false] }), null);
+const distributionSource = await readFile(new URL("../../src/indoor_vt/execution/web/peak-distributions.js", import.meta.url), "utf8");
+const { histogramRows } = await import(`data:text/javascript;base64,${Buffer.from(distributionSource).toString("base64")}`);
+const rows = histogramRows({ bin_width: .25, totals: [3, 9], bins: [[0, 1, 4], [.25, 2, 5]] });
+assert.equal(rows.reduce((sum, r) => sum + r.density[0] * .25, 0), 1);
+assert.equal(rows.reduce((sum, r) => sum + r.density[1] * .25, 0), 1);
+assert.equal(histogramRows({ bin_width: .25, totals: [0, 1], bins: [[0, 0, 1]] })[0].density[0], null);
 console.log("Spatial matching metric, binning and anchor checks passed.");

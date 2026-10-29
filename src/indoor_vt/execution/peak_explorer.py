@@ -261,6 +261,11 @@ class PeakExplorer:
                 return self.summary(context, data, scope)
             if action == "spatial":
                 return self.spatial(context, data)
+            if action == "distributions":
+                from .peak_distributions import dissimilarity_distributions
+                if "distributions" not in data:
+                    data["distributions"] = dissimilarity_distributions(data["profiles"], pairs, matcher)
+                return data["distributions"]
             if action != "pair":
                 raise ValueError("Unknown peak diagnostic action")
             left, right = sorted((int(left), int(right)))
