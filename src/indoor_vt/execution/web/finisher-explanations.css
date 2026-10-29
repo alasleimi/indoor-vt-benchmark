@@ -1,0 +1,93 @@
+.finisher-explanation,
+.proposal-explanation,
+.finisher-code-note,
+.finisher-parameter-summary {
+  margin: 28px 0;
+}
+.finisher-explanation {
+  border-top: 2px solid #d2e4df;
+  padding-top: 20px;
+}
+.finisher-explanation h4,
+.proposal-explanation h4 {
+  font-size: 15px;
+  line-height: 1.5;
+  margin: 28px 0 12px;
+  color: #173c36;
+}
+.finisher-explanation p,
+.proposal-explanation p,
+.finisher-code-note p,
+.finisher-parameter-summary p {
+  line-height: 1.85;
+  overflow-wrap: break-word;
+}
+.finisher-equation {
+  background: #f4f8f7;
+  border: 1px solid #dce8e4;
+  border-radius: 6px;
+  margin: 16px 0;
+  padding: 8px 16px;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+.finisher-equation .katex-display {
+  text-align: left;
+  margin: 10px 0;
+}
+.finisher-equation .katex-display > .katex {
+  text-align: left;
+  font-size: 16px;
+}
+.finisher-parameter-summary summary {
+  cursor: pointer;
+  padding: 12px;
+  background: #edf5f2;
+  border-radius: 6px;
+  line-height: 1.8;
+  color: #173c36;
+}
+.finisher-explanation .katex,
+.proposal-explanation .katex,
+.finisher-parameter-summary .katex {
+  font-size: 1.08em;
+}
+.finisher-values {
+  width: 100%;
+  table-layout: fixed;
+}
+.finisher-values th,
+.finisher-values td {
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+.finisher-values th:nth-child(1) { width: 26%; }
+.finisher-values th:nth-child(2) { width: 22%; }
+.finisher-values th:nth-child(3) { width: 52%; }
+.finisher-values code { white-space: normal; }
+
+.reconstruction-algorithm p { line-height: 1.65; margin: 10px 0; }
+.algorithm-io { border-left: 3px solid #85b5a7; padding-left: 14px; margin: 16px 0; }
+.algorithm-index { display: grid; gap: 5px; padding: 14px 16px; background: #f4f8f7; border: 1px solid #dce8e4; border-radius: 6px; }
+.algorithm-index a { color: #235f52; line-height: 1.5; font-size: 12px; text-decoration: none; }
+.algorithm-index a:hover { text-decoration: underline; }
+.algorithm-stage { margin-top: 28px; }
+.algorithm-stage > h3 { border-bottom: 2px solid #d2e4df; padding-bottom: 12px; }
+.algorithm-steps { padding-left: 25px; }
+.algorithm-steps > li { padding: 4px 0 20px 4px; margin: 14px 0 0; border-bottom: 1px solid #e3ebe7; scroll-margin-top: 18px; }
+.algorithm-steps > li::marker { font-size: 16px; font-weight: 700; color: #176752; }
+.algorithm-steps h4 { font-size: 15px; line-height: 1.5; margin: 0 0 5px; color: #173c36; }
+.algorithm-code-links, .algorithm-constructor { font-size: 11px; overflow-wrap: anywhere; }
+.algorithm-code-links a, .algorithm-constructor a { color: #22725f; }
+.algorithm-settings { padding: 7px 10px; background: #edf5f1; border-radius: 4px; color: #284d41; font-size: 12px; }
+.algorithm-detail { margin: 14px 0; }
+.algorithm-detail summary { color: #3e685b; cursor: pointer; line-height: 1.6; }
+.optimization-variable { border-left: 3px solid #3d8b73; padding: 8px 12px; background: #f4f8f7; }
+.reconstruction-algorithm .katex { font-size: 1.08em; }
+.reconstruction-algorithm .finisher-equation .katex-display > .katex { font-size: 15px; }
+.algorithm-cache { margin-top: 28px; border-top: 2px solid #d2e4df; padding-top: 18px; }
+.reconstruction-algorithm code { white-space: normal; overflow-wrap: anywhere; }
+.component-pruning-rule { margin: 12px 0; padding-left: 25px; }
+.component-pruning-rule > li { padding: 3px 0; line-height: 1.6; }
+.source-grouping-overview .method-steps > li { margin-bottom: 18px; }
+.source-grouping-overview h4 { margin: 0 0 10px; font-size: 15px; }

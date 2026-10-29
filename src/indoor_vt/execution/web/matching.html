@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Peak matching · Indoor VT</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23087e70'/%3E%3Cpath d='M8 8h16v16H8zM8 16h16M16 8v16' fill='none' stroke='white'/%3E%3C/svg%3E"
+    />
+    <link rel="stylesheet" href="./style.css" />
+    <link rel="stylesheet" href="./peak-matching.css" />
+    <script type="module" src="./peak-matching.js"></script>
+  </head>
+  <body class="matching-page">
+    <a class="skip" href="#main">Skip to matching explorer</a>
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">◈</span>
+        <div>Indoor VT<small>BENCHMARK EXPLORER</small></div>
+      </div>
+      <div class="nav-caption">RESULT LISTS</div>
+      <nav aria-label="Result lists">
+        <a class="nav-item" href="/?view=vt"
+          ><span class="nav-icon">◈</span>VT reconstruction</a
+        >
+        <a class="nav-item" href="/?view=raw"
+          ><span class="nav-icon">⌖</span>Raw localization</a
+        >
+        <a class="nav-item" href="/?view=all"
+          ><span class="nav-icon">◎</span>Localization</a
+        >
+        <a class="nav-item active" href="./matching.html" aria-current="page"
+          ><span class="nav-icon">▦</span>Peak matching</a
+        >
+        <a class="nav-item" href="/true-matching.html"><span class="nav-icon">≋</span>True matching analysis</a>
+      </nav>
+      <div class="sidebar-note">
+        <span class="status-dot"></span> Matching diagnostic
+        <p>Selected MPUrge<br />First-round scores · Direct NIST</p>
+      </div>
+      <div class="sidebar-bottom">
+        <span>CALIBRATION ROOM</span><strong>Rectangle 01</strong>
+        <p>Loading survey positions · AP A / B</p>
+        <div class="version">Redesign <span>Selected parameters</span></div>
+      </div>
+    </aside>
+    <main id="main">
+      <header class="page-header">
+        <div>
+          <div class="eyebrow">INDOOR POSITIONING / MATCHING</div>
+          <h1>Pairwise peak matching</h1>
+          <p>
+            Compare matching quality across distances and survey positions,
+            then inspect individual peak pairs.
+          </p>
+        </div>
+        <button class="button subtle" id="copy-matching">
+          Copy view link ↗
+        </button>
+      </header>
+      <div class="notice">
+        <span class="notice-tag">FIRST-ROUND SCORES</span>
+        <p>
+          <strong
+            >Current redesign study · Direct NIST · Selected MPUrge.</strong
+          >
+          Lower dissimilarity δ is better. Choose first-round or final matches
+          below; the displayed scores always stay at round 1.
+          This diagnostic uses the saved parameters and observations with the
+          current matcher. It does not recalibrate methods or rerun reconstruction.
+        </p>
+      </div>
+      <div id="matching-error" class="matching-error" role="alert" hidden></div>
+      <section
+        class="match-card condition-card"
+        aria-label="Matching condition"
+      >
+        <label style="grid-column: 1/-1; min-width: 300px"
+          >Selected configuration<select id="match-method"></select
+        ></label>
+        <label
+          >AP channel<select id="match-ap" disabled>
+            <option>A</option>
+            <option>B</option>
+          </select></label
+        >
+        <label>Range noise σ<select id="match-noise" disabled></select></label>
+        <div class="preset-note">Loading selected parameters…</div>
+        <a
+          class="method-link"
+          href="/source?file=science/matching.py"
+          target="_blank"
+          rel="noopener"
+          >Matcher code ↗</a
+        >
+      </section>
+      <section class="match-card" aria-labelledby="room-summary-title">
+        <div class="match-section-heading">
+          <div>
+            <h2 id="room-summary-title">Across the room · first round</h2>
+            <p id="room-summary-note">
+              Loading first-round matching statistics…
+            </p>
+          </div>
+          <div class="room-actions">
+            <label
+              >Matching stage<select id="room-match-scope" disabled>
+                <option value="first">First-round matches</option>
+                <option value="final">Final matches (all rounds)</option>
+              </select></label
+            >
+            <button id="export-room" class="button subtle" disabled>
+              Export room summary
+            </button>
+          </div>
+        </div>
+        <div id="room-metrics" class="match-metrics" aria-live="polite"></div>
+        <details class="matching-explanation">
+          <summary>Score reliability and metric definitions</summary>
+          <div class="reliability-layout">
+            <div id="reliability-chart"></div>
+            <div>
+              <p>
+                <strong>Precision:</strong> fraction of accepted pairs from the
+                same source. <strong>Recall:</strong> fraction of available
+                same-source correspondences accepted. <strong>F1:</strong> their
+                harmonic mean.
+              </p>
+              <p>
+                Counts are pooled over every unique fingerprint pair used by
+                local MPUrge across the room. A missed correspondence includes a
+                true pair lost during size unification. This is peak identity
+                matching, not the map’s 0.5 m F1 tolerance. Metrics and pair
+                ordering follow the selected matching stage; the reliability
+                chart always uses first-round dissimilarities.
+              </p>
+              <p id="correlation-note"></p>
+              <p>
+                Ground truth uses retained native path identities, carried
+                through the exact noise realization and sorting. These labels
+                and native gains never enter the matcher.
+              </p>
+            </div>
+          </div>
+        </details>
+      </section>
+      <section id="matching-spatial" class="match-card" aria-label="Matching quality by distance and survey position"></section>
+      <section class="match-card pair-card" aria-labelledby="pair-title">
+        <div class="match-section-heading">
+          <div>
+            <h2 id="pair-title">Inspect two fingerprints</h2>
+            <p id="pair-status" role="status">Loading fingerprints…</p>
+          </div>
+          <div class="pair-step">
+            <button
+              id="previous-pair"
+              class="button subtle"
+              disabled
+              aria-label="Previous fingerprint pair"
+            >
+              ←</button
+            ><button
+              id="next-pair"
+              class="button subtle"
+              disabled
+              aria-label="Next fingerprint pair"
+            >
+              →
+            </button>
+          </div>
+        </div>
+        <div class="pair-controls">
+          <label
+            >Horizontal fingerprint<select id="reference-left" disabled></select
+          ></label>
+          <label
+            >Vertical fingerprint<select id="reference-right" disabled></select
+          ></label>
+          <label
+            >Browse room pairs<select id="pair-order" disabled>
+              <option value="survey">Survey order</option>
+              <option value="errors">Most incorrect matches</option>
+              <option value="worst">Lowest first-round F1</option>
+              <option value="best">Highest first-round F1</option>
+            </select></label
+          >
+        </div>
+        <div class="overlay-control">
+          <label
+            >Match overlay<select id="match-overlay" disabled>
+              <option value="first">First-round matches</option>
+              <option value="final">Final matches (all rounds)</option>
+            </select></label
+          >
+          <p>
+            Changes the circles, pair and room metrics, and pair ordering. All
+            displayed dissimilarity scores stay first-round.
+          </p>
+        </div>
+        <div class="pair-context">
+          <div id="pair-metrics" class="pair-stats"></div>
+          <div
+            id="pair-location"
+            aria-label="Survey positions in the room"
+          ></div>
+        </div>
+        <div class="matrix-toolbar">
+          <div class="matrix-legend">
+            <span><i class="symbol circle"></i>Accepted match</span
+            ><span><i class="symbol square"></i>Same true source</span
+            ><span><i class="symbol both"></i>Correct match</span>
+          </div>
+          <div class="matrix-options">
+            <label
+              ><input id="show-matches" type="checkbox" checked />
+              Matches</label
+            ><label
+              ><input id="show-truth" type="checkbox" checked /> Truth</label
+            ><label
+              ><input id="show-values" type="checkbox" checked /> Values</label
+            ><button id="export-pair" class="button subtle" disabled>
+              Export pair CSV
+            </button>
+          </div>
+        </div>
+        <p class="matrix-caption" id="matrix-caption">
+          Peaks are sorted by range. Equal cell spacing represents peak order,
+          not physical range spacing.
+        </p>
+        <div
+          id="matrix-scroll"
+          class="matrix-scroll"
+          tabindex="0"
+          aria-label="Scrollable peak dissimilarity matrix"
+          aria-busy="true"
+        >
+          <div id="matrix-content"></div>
+        </div>
+        <div class="heatmap-key">
+          <span class="heatmap-ramp"></span
+          ><span id="heatmap-range">Lower δ → higher δ</span
+          ><span>Grey cells: peak excluded by size unification.</span>
+        </div>
+        <section
+          id="cell-detail"
+          class="cell-detail"
+          aria-label="Selected peak pair"
+          aria-live="polite"
+        >
+          <p>Select a cell to inspect its score and source identity.</p>
+        </section>
+        <details class="matching-explanation">
+          <summary>What the matrix shows</summary>
+          <p>
+            Each column is a peak in the horizontal fingerprint; each row is a
+            peak in the vertical fingerprint. Header bars show native path gain
+            on a relative dB scale. Matching uses ranges only.
+          </p>
+          <p>
+            MPUrge optionally equalizes profile lengths, according to this
+            configuration, then calculates δ = α × range difference + (1 − α) ×
+            pattern discrepancy. It identifies reciprocal best choices and
+            applies the order cross-check. A circle marks an accepted match in
+            the selected overlay. Final matches include all rounds: later rounds
+            recompute scores on the remaining peaks, but those later scores are
+            not shown in this matrix. A square means the peaks share a true
+            source, including the direct-path AP.
+          </p>
+          <p>
+            Both shapes indicate a correct accepted match. A circle alone is
+            incorrect. A square alone is a correspondence not accepted in the
+            selected overlay. Unscored grey cells retain truth markers so
+            exclusions stay visible. Matrices use the lower survey index as the
+            horizontal fingerprint, matching the room evaluation.
+          </p>
+        </details>
+      </section>
+      <footer class="page-footer">
+        <span
+          >Selected-parameter diagnostic · first-round scores · selectable match
+          overlay</span
+        ><a
+          href="https://github.com/alasleimi/indoor-vt-benchmark"
+          target="_blank"
+          rel="noopener"
+          >Repository & reproducible exporter ↗</a
+        >
+      </footer>
+    </main>
+  </body>
+</html>

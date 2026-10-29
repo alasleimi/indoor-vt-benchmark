@@ -1,71 +1,35 @@
-"""Build GitHub Pages from committed compact data, with no simulator or Python packages."""
-
-import argparse
-import hashlib
-import json
+"""Build a subpath-safe GitHub Pages site from the checked-in saved snapshot."""
 from pathlib import Path
 import shutil
+import re
 
 
-ROOT = Path(__file__).resolve().parents[1]
-
-
-def build(root=ROOT, output=None):
-    root = Path(root).resolve()
-    output = Path(output or root / "build/pages").resolve()
-    if (
-        output == root
-        or output.is_relative_to(root / "data")
-        or output.is_relative_to(root / "runs")
-    ):
-        raise ValueError("Pages output must be separate from generated data and experiment results")
-    snapshot = root / "published/v6"
-    manifest = json.loads((snapshot / "manifest.json").read_text(encoding="utf8"))
+def build(output=Path('build/pages')):
+    assets = Path('src/indoor_vt/execution/web')
     output.mkdir(parents=True, exist_ok=True)
-    for record in manifest["files"]:
-        source = (snapshot / record["file"]).resolve()
-        if not source.is_relative_to(snapshot.resolve()):
-            raise ValueError("Invalid snapshot path")
-        with source.open("rb") as f:
-            if hashlib.file_digest(f, "sha256").hexdigest() != record["sha256"]:
-                raise ValueError(f"Snapshot checksum mismatch: {record['file']}")
-        # The input archive is downloadable from the repository; the viewer needs only metrics.
-        if source.suffix == ".zip":
+    for path in assets.rglob('*'):
+        if not path.is_file():
             continue
-        destination = output / record["file"]
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(source, destination)
-    for name in (
-        "index.html",
-        "style.css",
-        "app.js",
-        "data-client.js",
-        "static-worker.js",
-        "vt-map.js",
-        "matching.html",
-        "peak-matching.css",
-        "peak-matching.js",
-        "peak-worker.js",
-        "peak-matcher.js",
-        "method-catalog.json",
-    ):
-        source = root / "web/results-explorer" / name
-        if name == "index.html":
-            output.joinpath(name).write_text(
-                source.read_text(encoding="utf8").replace(
-                    '<html lang="en">', '<html lang="en" data-mode="static">'
-                ),
-                encoding="utf8",
-            )
+        target = output/path.relative_to(assets)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        if path.suffix in ('.html', '.js', '.mjs', '.css') and 'vendor' not in path.parts:
+            text = path.read_text(encoding='utf-8')
+            # The live viewer is at /; Pages is mounted at /indoor-vt-benchmark/.
+            for quote in ('"', "'", '`'):
+                text = text.replace(quote+'/source?', quote+'./source.html?')
+                text = text.replace(quote+'/construction?', quote+'./construction.html?')
+            names = '|'.join(re.escape(p.name) for p in assets.iterdir() if p.is_file())
+            if path.name != 'site-runtime.js':
+                text = re.sub(r'''(["'`])/(?=(?:api/|vendor/|''' + names + r'''))''', r'\1./', text)
+            text = text.replace('href="/"', 'href="./"').replace('href="/?', 'href="./?')
+            if path.suffix == '.html':
+                text = text.replace('<head>', '<head><script>window.VT_STATIC = true;</script>', 1)
+            target.write_text(text, encoding='utf-8')
         else:
-            shutil.copyfile(source, output / name)
-    (output / ".nojekyll").write_text("")
-    print(f"Built Pages site: {output}")
-    return output
+            shutil.copy2(path, target)
+    shutil.copytree('published/redesign', output/'snapshot', dirs_exist_ok=True)
+    (output/'.nojekyll').write_text('')
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--output", type=Path)
-    args = parser.parse_args()
-    build(output=args.output)
+if __name__ == '__main__':
+    build()

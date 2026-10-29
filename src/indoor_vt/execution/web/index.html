@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Indoor VT · Experiment explorer</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='10' fill='%230e7668'/%3E%3Cpath d='M10 27V13h20v14M10 20h20' fill='none' stroke='white' stroke-width='2'/%3E%3C/svg%3E"
+    />
+    <link rel="stylesheet" href="/style.css" />
+    <link rel="stylesheet" href="/explorer.css" />
+    <link rel="stylesheet" href="/vendor/katex/katex.min.css" />
+    <link rel="stylesheet" href="/finisher-explanations.css" />
+    <script type="module" src="/app.js"></script>
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to results</a>
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"
+          ><svg viewBox="0 0 32 32">
+            <path d="M6 25V7h20v18M6 16h20M16 7v18" />
+            <circle cx="16" cy="16" r="4" /></svg
+        ></span>
+        <div>Indoor VT<small>EXPERIMENT EXPLORER</small></div>
+      </div>
+      <div class="nav-caption">RESULT LISTS</div>
+      <nav aria-label="Result lists">
+        <button data-view="vt" class="nav-item active">
+          <span class="nav-icon" aria-hidden="true">◇</span>VT
+          reconstruction<span id="count-vt" class="nav-count">—</span>
+        </button>
+        <button data-view="raw" class="nav-item">
+          <span class="nav-icon" aria-hidden="true">⌖</span>Raw
+          localization<span id="count-raw" class="nav-count">—</span>
+        </button>
+        <button data-view="all" class="nav-item">
+          <span class="nav-icon" aria-hidden="true">◎</span>
+          Localization<span id="count-all" class="nav-count">—</span>
+        </button>
+        <a class="nav-item" href="/matching.html"
+          ><span class="nav-icon">▦</span>Peak matching</a
+        >
+        <a class="nav-item" href="/true-matching.html"><span class="nav-icon">≋</span>True matching analysis</a>
+      </nav>
+      <div class="sidebar-note">
+        <span class="status-dot"></span
+        ><span id="run-state">Loading experiment…</span
+        ><small id="trial-state"></small
+        ><progress
+          id="opt-progress"
+          max="1"
+          value="0"
+          aria-label="Selection progress"
+        ></progress>
+      </div>
+      <div class="sidebar-bottom">
+        <span>CURRENT EXPERIMENT</span
+        ><strong id="room-description">Reading saved results</strong>
+        <p id="dataset-description"></p>
+        <div class="version">Redesign <span>Local explorer</span></div>
+      </div>
+    </aside>
+    <main id="main">
+      <header class="page-header">
+        <div>
+          <div class="eyebrow">INDOOR POSITIONING / RESULTS</div>
+          <h1 id="page-title">VT reconstruction</h1>
+          <p id="page-description">
+            Compare source maps selected for reconstruction or full-pipeline
+            accuracy.
+          </p>
+        </div>
+        <button id="copy-link" class="button subtle">Copy view link ↗</button>
+      </header>
+      <div class="notice">
+        <span id="split-badge" class="notice-tag">FROZEN PARAMETERS</span>
+        <p id="split-note">Loading selection and evaluation results…</p>
+      </div>
+      <section class="workspace" aria-label="Result filters">
+        <div class="workspace-top">
+          <div class="track-control">
+            <span class="track-label" id="track-label">Direct NIST</span
+            ><small id="room-label"></small>
+          </div>
+          <div class="track-note">
+            Settings fixed across noise levels
+          </div>
+        </div>
+        <div class="query-protocol">
+          <p id="query-counts"></p>
+          <details>
+            <summary>Where do these queries come from?</summary>
+            <div id="query-origin"></div>
+          </details>
+        </div>
+        <div class="filters">
+          <label
+            >Result split<select id="split">
+              <option value="evaluation">Held-out query evaluation</option>
+              <option value="calibration">Noise-free calibration</option>
+            </select></label
+          >
+          <label
+            >Range noise σ (m)<select id="noise">
+              <option value="0">0</option>
+            </select></label
+          >
+          <details class="tag-filter" id="tag-filter">
+            <summary id="tag-filter-summary">Filter tags</summary>
+            <div class="tag-filter-menu" id="tag-filter-menu"></div>
+          </details>
+          <label
+            >Parameter selection<select id="selection">
+              <option value="">All selection types</option>
+            </select></label
+          >
+          <label id="ap-filter"
+            >AP<select id="ap">
+              <option value="A">A</option>
+              <option value="B">B</option>
+              <option value="A+B" selected>A+B</option>
+            </select></label
+          >
+          <label id="obstacles-filter" hidden
+            >Obstacles<select id="obstacles"></select
+          ></label>
+          <label id="stage-filter" hidden
+            >Localization stage<select id="stage">
+              <option value="">Raw + SMART-LEA</option>
+              <option value="pipeline">With SMART-LEA</option>
+              <option value="raw">Raw only</option>
+            </select></label
+          >
+        </div>
+        <div class="filter-footer">
+          <span id="filter-summary"></span
+          ><button id="reset" class="text-button">Reset filters</button>
+        </div>
+      </section>
+      <section
+        id="cards"
+        class="cards"
+        aria-label="Results at a glance"
+      ></section>
+      <section
+        id="results-panel"
+        class="results-panel"
+        aria-label="Ranked results"
+        aria-busy="true"
+      >
+        <div class="table-toolbar">
+          <div>
+            <h2>
+              Methods &amp; selected configurations
+              <span id="row-count" class="count-pill">—</span>
+            </h2>
+            <p id="ranking-note">Lower error is better</p>
+          </div>
+          <div class="table-actions">
+            <label class="search-label"
+              ><span aria-hidden="true">⌕</span
+              ><input
+                id="search"
+                type="search"
+                placeholder="Find a method…"
+                aria-label="Find a method" /></label
+            ><button id="export" class="button">Export CSV ↓</button>
+          </div>
+        </div>
+        <div id="error" class="error" role="alert" hidden></div>
+        <div class="table-scroll">
+          <table id="results-table">
+            <thead id="table-head"></thead>
+            <tbody id="table-body">
+              <tr>
+                <td class="empty">Loading experiment results…</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <footer class="table-footer">
+          <span id="metric-note"></span
+          ><span>Choose a method for parameters, trials and evidence ↗</span>
+        </footer>
+      </section>
+      <section class="noise-panel">
+        <div class="section-heading">
+          <div>
+            <h2>Error across noise levels</h2>
+            <p>Each curve keeps its method settings fixed across noise levels.</p>
+          </div>
+          <span class="stage-badge">Evaluation</span>
+        </div>
+        <div id="noise-chart"></div>
+        <div id="chart-legend" class="chart-legend"></div>
+      </section>
+      <details class="run-details">
+        <summary>Experiment status &amp; acquisition</summary>
+        <div id="run-details"></div>
+      </details>
+      <div class="page-footer">
+        <span id="source-note"></span
+        ><span>3D errors · distances in meters</span>
+      </div>
+    </main>
+    <div id="drawer-backdrop" class="drawer-backdrop" hidden></div>
+    <section
+      id="drawer"
+      class="drawer"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="detail-title"
+      tabindex="-1"
+      hidden
+    >
+      <header class="drawer-header">
+        <div class="eyebrow">SELECTED CONFIGURATION</div>
+        <button
+          id="close-detail"
+          class="icon-button"
+          aria-label="Close result detail"
+        >
+          ×
+        </button>
+        <h2 id="detail-title"></h2>
+        <p id="detail-subtitle"></p>
+      </header>
+      <div class="detail-tabs" role="tablist" aria-label="Method details">
+        <button
+          role="tab"
+          id="tab-overview"
+          data-tab="overview"
+          aria-controls="detail-content"
+          aria-selected="true"
+        >
+          Overview
+        </button>
+        <button
+          role="tab"
+          id="tab-map"
+          data-tab="map"
+          aria-controls="detail-content"
+          aria-selected="false"
+          tabindex="-1"
+        >
+          Map
+        </button>
+        <button
+          role="tab"
+          id="tab-method"
+          data-tab="method"
+          aria-controls="detail-content"
+          aria-selected="false"
+          tabindex="-1"
+        >
+          Scientific method
+        </button>
+        <button
+          role="tab"
+          id="tab-code"
+          data-tab="code"
+          aria-controls="detail-content"
+          aria-selected="false"
+          tabindex="-1"
+        >
+          Code &amp; caching
+        </button>
+        <button
+          role="tab"
+          id="tab-parameters"
+          data-tab="parameters"
+          aria-controls="detail-content"
+          aria-selected="false"
+          tabindex="-1"
+        >
+          Parameters
+        </button>
+        <button
+          role="tab"
+          id="tab-search"
+          data-tab="search"
+          aria-controls="detail-content"
+          aria-selected="false"
+          tabindex="-1"
+        >
+          Search history
+        </button>
+        <button
+          role="tab"
+          id="tab-evidence"
+          data-tab="evidence"
+          aria-controls="detail-content"
+          aria-selected="false"
+          tabindex="-1"
+        >
+          Evidence
+        </button>
+      </div>
+      <div id="trial-context" class="trial-context" hidden></div>
+      <div
+        id="detail-content"
+        class="detail-content"
+        role="tabpanel"
+        aria-labelledby="tab-overview"
+      ></div>
+    </section>
+    <div id="toast" class="toast" role="status" hidden></div>
+  </body>
+</html>

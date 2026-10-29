@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>True matching analysis · Indoor VT</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23087e70'/%3E%3Cpath d='M8 8h16v16H8zM8 16h16M16 8v16' fill='none' stroke='white'/%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="/style.css" />
+  <link rel="stylesheet" href="/true-matching.css" />
+  <link rel="stylesheet" href="/vendor/katex/katex.min.css" />
+  <script type="module" src="/true-matching.js"></script>
+</head>
+<body class="truth-page">
+  <a class="skip" href="#main">Skip to true matching analysis</a>
+  <aside class="sidebar">
+    <div class="brand"><span class="brand-mark" aria-hidden="true">◈</span><div>Indoor VT<small>BENCHMARK EXPLORER</small></div></div>
+    <div class="nav-caption">RESULT LISTS</div>
+    <nav aria-label="Result lists">
+      <a class="nav-item" href="/?view=vt"><span class="nav-icon" aria-hidden="true">◇</span>VT reconstruction</a>
+      <a class="nav-item" href="/?view=raw"><span class="nav-icon" aria-hidden="true">⌖</span>Raw localization</a>
+      <a class="nav-item" href="/?view=all"><span class="nav-icon" aria-hidden="true">◎</span>Localization</a>
+      <a class="nav-item" href="/matching.html"><span class="nav-icon" aria-hidden="true">▦</span>Peak matching</a>
+      <a class="nav-item active" href="/true-matching.html" aria-current="page"><span class="nav-icon" aria-hidden="true">≋</span>True matching analysis</a>
+    </nav>
+    <div class="sidebar-note"><span class="status-dot"></span>Empty-room analysis<p>Frozen standard MPUrge<br />Exact source identities for evaluation</p></div>
+    <div class="sidebar-bottom"><span>ORIGINAL SURVEY</span><strong id="side-room">Rectangle room</strong><p>280 positions · All noise levels<br />Direct + reflected sources</p><div class="version">Redesign <span>Correspondence analysis</span></div></div>
+  </aside>
+  <main id="main">
+    <header class="page-header"><div><div class="eyebrow">INDOOR POSITIONING / CORRESPONDENCES</div><h1>True matching analysis</h1><p>How rank, crossings, and geometric bounds change under range noise.</p></div><button id="copy-link" class="button subtle">Copy view link ↗</button></header>
+    <div id="load-status" class="truth-status" role="status">Loading saved analysis…</div>
+    <div id="analysis" hidden>
+      <section class="truth-protocol" aria-label="Analysis protocol">
+        <div class="truth-toolbar"><div><span class="truth-badge">EMPTY ROOM · FROZEN CALIBRATION</span><h2 id="room-title"></h2></div><label>AP channel<select id="ap"><option value="A">A</option><option value="B">B</option><option value="A+B" selected>A+B</option></select></label><button class="button subtle" id="export">Download counts (JSON)</button></div>
+        <p id="coverage"></p><p id="calibration"></p>
+        <details><summary>Definitions, source code, and exact observation protocol</summary><div id="protocol-detail"></div></details>
+      </section>
+
+      <section class="truth-section" aria-labelledby="rank-title">
+        <div class="truth-section-heading"><span class="section-number">1</span><div><h2 id="rank-title">Rank preservation</h2><p>Rank is the position of a peak in the full observed fingerprint, sorted by its noisy range.</p></div></div>
+        <div class="truth-grid">
+          <article class="truth-chart-card"><h3>True matches with exactly the same rank</h3><p>Among all true correspondences observed at both receivers. A true match connects the same source identity.</p><div id="rank-line" class="chart-host"></div></article>
+          <article class="truth-chart-card"><h3>Equal-rank matches returned by MPUrge</h3><p>Each bar is a percentage of <strong>all final MPUrge pairwise matches</strong>, split into correct and incorrect equal-rank matches.</p><div id="rank-bar" class="chart-host"></div></article>
+        </div>
+      </section>
+
+      <section class="truth-section" aria-labelledby="cross-title">
+        <div class="truth-section-heading"><span class="section-number">2</span><div><h2 id="cross-title">Non-crossing</h2><p>Here we plot the fraction that <strong>crosses</strong>: an individual true match is counted once if it crosses at least one other true match in the same fingerprint pair.</p></div></div>
+        <div class="truth-definition"><span data-math="(i-k)(j-\ell)&lt;0"></span><p>True matches connect ranks <span data-math="i\to j"></span> and <span data-math="k\to\ell"></span>. They cross when their rank order reverses. The denominator is the number of true correspondence edges, not the number of pairs of edges.</p></div>
+        <article class="truth-chart-card"><h3>True matches that cross at least one other true match</h3><p>The complement, 100% minus this value, is the fraction crossing no other true match. This is not the maximum subset a non-crossing matcher could retain.</p><div id="cross-line" class="chart-host"></div></article>
+      </section>
+
+      <section class="truth-section" aria-labelledby="geometry-title">
+        <div class="truth-section-heading"><span class="section-number">3</span><div><h2 id="geometry-title">Geometric bounds</h2><p>These are the noiseless bounds applied directly to observed noisy ranges. No noise-dependent allowance is added.</p></div></div>
+        <div class="truth-definition"><span data-math="d=\lVert x_A-x_B\rVert_2,\qquad a=r_A+\epsilon_A,\quad b=r_B+\epsilon_B"></span><p><span data-math="x_A,x_B\in\mathbb{R}^3"></span> are known receiver positions; <span data-math="r_A,r_B"></span> are the true ranges to one source; <span data-math="a,b"></span> are its observed ranges. Independently, <span data-math="\epsilon_A,\epsilon_B\sim\mathcal N(0,\sigma^2)"></span>. Noise can make correct correspondences violate either bound. Negative observed ranges are discarded by the saved observation protocol.</p><p>Numerical allowance only: <span data-math="\tau=10^{-10}\,\mathrm m"></span>. This accommodates floating-point roundoff, not measurement noise.</p></div>
+        <h3 class="truth-subheading">3a · Range difference</h3>
+        <div class="truth-bound"><span data-math="|a-b|\le d+\tau"></span><p>The absolute difference between observed ranges must not exceed receiver separation, up to numerical roundoff.</p></div>
+        <div class="truth-grid truth-geometry-grid">
+          <article class="truth-chart-card"><h3>True matches satisfying the difference bound</h3><p>Percentage of shared observed-source correspondences, across all pairs or MPUrge neighborhoods.</p><div id="difference-line" class="chart-host"></div></article>
+          <article class="truth-chart-card"><h3>Final MPUrge matches violating the difference bound</h3><p>Bar height: percentage of <strong>all final MPUrge pairwise matches</strong> violating the bound. Segments compare that violation with the bound on each endpoint's <strong>true partner</strong>, not whether MPUrge chose the correct partner.</p><div id="difference-bar" class="chart-host"></div></article>
+          <article class="truth-chart-card"><h3>What percentage of violating matches are correct?</h3><p>Compare source-identity correctness <strong>among difference-bound violations</strong> with the <strong>MPUrge baseline</strong>: the percentage of all final MPUrge matches with correct source identity. Each series has its own denominator; N/A means no violating matches.</p><div id="difference-accuracy" class="chart-host"></div></article>
+        </div>
+        <h3 class="truth-subheading">3b · Range sum</h3>
+        <div class="truth-bound"><span data-math="a+b+\tau\ge d"></span><p>The sum of observed ranges must reach the distance between receivers, up to numerical roundoff.</p></div>
+        <div class="truth-grid truth-geometry-grid">
+          <article class="truth-chart-card"><h3>True matches satisfying the sum bound</h3><p>Percentage of shared observed-source correspondences, across all pairs or MPUrge neighborhoods.</p><div id="sum-line" class="chart-host"></div></article>
+          <article class="truth-chart-card"><h3>Final MPUrge matches violating the sum bound</h3><p>Same denominator and true-partner comparison as above. <strong>Standard MPUrge does not apply either geometric gate</strong>; these plots only analyze its returned matches.</p><div id="sum-bar" class="chart-host"></div></article>
+          <article class="truth-chart-card"><h3>What percentage of violating matches are correct?</h3><p>Compare source-identity correctness <strong>among sum-bound violations</strong> with the <strong>MPUrge baseline</strong>: the percentage of all final MPUrge matches with correct source identity. N/A means no violating matches; the baseline still includes all final matches.</p><div id="sum-accuracy" class="chart-host"></div></article>
+        </div>
+        <details class="truth-definition"><summary>How the violation bars compare MPUrge with the actual true matches</summary><p>For a returned edge <span data-math="a\to\hat b"></span> that violates the bound, look up the observed peak <span data-math="b^*"></span> from the same source as <span data-math="a"></span>. If <span data-math="(a,b^*)"></span> also violates it, this is an <strong>expected violation</strong>. If the true pair satisfies it, it is an <strong>unnecessary violation</strong>. If the true counterpart was discarded, the classification is <strong>unavailable</strong>.</p><p>A wrong output edge has different sources at its two ends. We therefore classify <strong>both endpoints</strong> with equal weight, instead of choosing an arbitrary direction. A segment's height is its endpoint count divided by twice the number of final matches. The total bar height remains exactly the fraction of final matches violating the bound. An edge whose endpoints disagree contributes half to each applicable segment; hover shows that disagreement count.</p></details>
+        <details class="truth-definition"><summary>Identity-correctness comparison: formulas and denominators</summary><p>Let <span data-math="M"></span> be all final MPUrge output edges, <span data-math="V\subseteq M"></span> those violating the selected bound, and <span data-math="T"></span> all true source correspondences. Vertical bars denote the number of edges in a set.</p><p><span data-math="\text{Correctness among violations}=100\frac{|V\cap T|}{|V|}\%,\qquad\text{MPUrge baseline}=100\frac{|M\cap T|}{|M|}\%"></span></p><p>If <span data-math="|V|=0"></span>, there are <strong>no violating matches</strong>, so no conditional percentage can be calculated; the chart shows N/A. The MPUrge baseline still measures correctness among all final matches. These are edge-based identity measurements, without endpoint doubling. The violation-frequency chart instead has total height <span data-math="100|V|/|M|\%"></span>.</p></details>
+      </section>
+      <footer class="truth-footer">All lines and bars use saved observations and frozen parameters. No reconstruction, localization, or calibration results are changed.</footer>
+    </div>
+  </main>
+  <div id="chart-tooltip" class="truth-tooltip" role="tooltip" hidden></div>
+</body>
+</html>
