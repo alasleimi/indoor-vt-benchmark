@@ -87,12 +87,14 @@ For retained track $T$, average quality over each node's incident edges whose
 other endpoint also belongs to $T$:
 
 $$\widetilde w_v=\frac1{|E_T(v)|}\sum_{e\in E_T(v)}q_e,\qquad
-w_v=\frac{\widetilde w_v}{\operatorname{mean}_{u\in T}\widetilde w_u},\qquad
+w_v=\frac{\widetilde w_v}{\operatorname{mean}_{u\in T_+}\widetilde w_u},\qquad
 \widehat z=\arg\min_z\sum_{v=(i,j)\in T}w_v(\|z-x_i\|_2-r_{ij})^2.$$
 
-Here $x_i$ is receiver position and $r_{ij}$ the observed peak range. Zero-degree
-nodes after component conflict pruning are omitted in weighted variants; require
-at least four noncoplanar receivers. This omission is part of the weighted ablation.
+Here $x_i$ is receiver position and $r_{ij}$ the observed peak range. Set
+$\widetilde w_v=w_v=0$ when $E_T(v)$ is empty, and let $T_+$ contain nodes with
+positive weights. Only those nodes enter coordinate estimation; require at least
+four noncoplanar receivers. Original track membership is retained for the ordinary
+clustering support count. These conventions are part of the tested weighted ablation.
 Weights enter candidate estimation only. They do not change pair matching,
 component conflict resolution, or either finisher's objective. Uniform uses the
 original unweighted estimator exactly. Similarity weights are heuristic qualities,
