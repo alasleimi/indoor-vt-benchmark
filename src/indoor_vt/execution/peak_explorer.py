@@ -106,7 +106,11 @@ class PeakExplorer:
             raise ValueError("The native-source matching diagnostic requires direct observations")
         from .compositions import VARIANTS, composed_reconstructor
         variant = receipt["method"].removesuffix("_joint").removesuffix("_lea")
-        if variant in VARIANTS and variant.startswith("mpurge"):
+        if variant.startswith('mpurge_stars_'):
+            from .star_experiment import star_reconstructor
+            p = receipt['parameters']
+            matcher = star_reconstructor(p, variant.removeprefix('mpurge_stars_')).proposals.matcher
+        elif variant in VARIANTS and variant.startswith("mpurge"):
             p = (receipt["parameters"] if receipt["method"] == variant else
                  receipt["parameters"]["source"] if receipt["method"].endswith("_joint") else
                  receipt["frozen"]["source"])

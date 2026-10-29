@@ -1,6 +1,6 @@
 import katex from "/vendor/katex/katex.mjs";
 
-// Presentation of production algorithms only. No experimental ablations here.
+// Presentation of measured methods, including explicitly marked exploratory variants.
 export const finisherNames = {
   consumption: "Support-first peak-consumption finisher",
   robust: "Robust range-refinement and peak-consumption finisher",
@@ -24,7 +24,7 @@ const step = (key, title, body, links = []) => ({key, title, body, links});
 
 export function sourceParameters(method, receipt) {
   return receipt.parameters?.source || receipt.frozen?.source ||
-    (method.selection === "ospa" ? receipt.parameters : null);
+    (method.selection === "ospa" || method.exploratory ? receipt.parameters : null);
 }
 export function hasReconstructionExplanation(method) {
   return method.component !== "initial" && (Boolean(method.finisher) ||
@@ -101,8 +101,8 @@ function mpurgeSteps(method, receipt, p) {
       `<p>Keep finite candidates satisfying both equations. Ties choose the first peak in sorted order. Process candidates by increasing ${math(String.raw`\Delta`)}, then left and right indices in this pair's initial sorted, possibly unified arrays.</p>
       ${method.allow_crossing ? `<p><strong>Accept crossings:</strong> keep the candidate even when ${math(String.raw`(a_i-a_u)(b_j-b_v)<0`)} for an already accepted pair ${math(String.raw`u\leftrightarrow v`)}. This variant changes reconstruction matching only; MPUrge-MAP and SMART-LEA keep their standard matchers.</p>` : `<p>Reject ${math(String.raw`i\leftrightarrow j`)} if it crosses any accepted match ${math(String.raw`u\leftrightarrow v`)}, including one accepted earlier in this round:</p>${eq(String.raw`(a_i-a_u)(b_j-b_v)<0`)}`}
       <p><strong>Purge both endpoints of every reciprocal candidate${method.allow_crossing ? "" : ", including rejected crossings"}.</strong> Accepted matches become graph edges with cost ${math(String.raw`\Delta_{ij}`)}. Rebuild windows and costs from remaining peaks; repeat. Stop when either array is empty or no finite reciprocal minimum exists.</p>`, [[method.allow_crossing ? "CrossingAllowedMPUrgeMatcher" : "_merge_purge_urge", "science/matching.py"]]),
-    step("peak-tracks", "Build a peak graph within each local scope",
-      connectedComponentGroupingBody(), [["ConnectedComponentsGrouper", "science/grouping.py"], ["group_within_scopes", "science/grouping.py"]]),
+    step("peak-tracks", method.grouping === "stars" ? "Make one star around each peak, within each local scope" : "Build a peak graph within each local scope",
+      method.grouping === "stars" ? `<p>A node is an observed peak ${math("v=(i,j)")}; an edge is an accepted pairwise match. Within each unchanged receiver scope, construct:</p>${eq(String.raw`T_v=\{v\}\cup\{u:(u,v)\in E\}`)}<p>${math("E")} is the set of accepted edges in that scope. A star contains its center and its immediate neighbors only. Do not follow longer paths. Pairwise matching is one-to-one, so the star has at most one peak from each receiver. Remove identical tracks across centers and scopes. These overlapping stars replace connected components; there is no degree-based conflict pruning.</p>` : connectedComponentGroupingBody(), [[method.grouping === "stars" ? "StarGrouper" : "ConnectedComponentsGrouper", "science/grouping.py"], ["group_within_scopes", "science/grouping.py"]]),
     sourceLeastSquares(),
   ];
 }
@@ -238,7 +238,7 @@ export function reconstructionExplanation(method, receipt) {
 export function finisherParameterSummary(method,receipt) {
   if (!hasReconstructionExplanation(method)) return "";
   const p=sourceParameters(method,receipt); if(!p)return "";
-  const recordOrigin=receipt.frozen?.source&&!receipt.parameters?.source?"Frozen upstream":"Selected / inspected";
+  const recordOrigin=method.exploratory?"Frozen exploratory":receipt.frozen?.source&&!receipt.parameters?.source?"Frozen upstream":"Selected / inspected";
   const specs=method.family==='mpurge' ? [
     ['k','neighbors','positions','Receiver neighborhood, including center and boundary ties'],
     ['h','half_window','peaks','Pattern-window half width; inactive when alpha = 1'],

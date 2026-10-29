@@ -59,6 +59,13 @@ if (globalThis.VT_STATIC) {
     if(path.endsWith('/api/peaks')) {
       const init=await initFor(q.trial);
       if(q.action==='init')return init;
+      const base=await read('matching-init'),manifest=await read('manifest');
+      const precomputed=manifest.matching_precomputed && init.meta.repetition===0 &&
+        ['alpha','half_window','neighbors','unify','matcher','triangle_tolerance_m'].every(k=>init.meta[k]===base.meta[k]);
+      if(precomputed && ['condition','spatial'].includes(q.action)) {
+        const saved=await read(`matching-precomputed/${q.ap||'A'}-${Number(q.noise||0)}`);
+        return saved[q.action==='spatial'?'spatial':q.matches||'first'];
+      }
       const load=async(ap,noise)=>read(`profiles/${init.meta.repetition}-${ap}-${Number(noise)}`);
       if(q.action==='summaries') {
         const out=[];for(const ap of ['A','B'])for(const noise of init.meta.noise_levels) {

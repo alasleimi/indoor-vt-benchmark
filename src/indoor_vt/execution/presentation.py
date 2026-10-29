@@ -40,7 +40,12 @@ def construction(receipt, config, component='sources'):
     source_only = method == 'mpurge' or method in VARIANTS or method in ('zayets', 'ransac')
     initial_only = component == 'initial' or method == 'mpurge_map'
     objects, notes = [], []
-    if method == 'range_rmse_true_count':
+    if method.startswith('mpurge_stars_'):
+        from .star_experiment import star_reconstructor
+        objects = [('method', star_reconstructor(p, method.removeprefix('mpurge_stars_')))]
+        notes.append('Frozen exploratory variant: same local pair graph; one star per peak instead of '
+                     'connected components. The selector replaces the proposer’s clusterer and support_filter.')
+    elif method == 'range_rmse_true_count':
         objects = [('method', range_rmse(p))]
         notes.append('The runner derives a deterministic seed per room and AP from this base seed. '
                      'The true count is a separate fit argument; no true coordinates enter this constructor.')
@@ -124,5 +129,7 @@ def search_spec(method, config):
             'raw_configurations': prod(prod(len(v) for v in s.values()) for s in grids.values()),
             'notes': 'Duplicate inactive settings are collapsed: half_window when alpha = 1, '
                      'median_clip_factor when median_penalty_weight = 0. Unification is fixed for this method tab. '
-                     + ('Upstream reconstruction and MAP parameters are frozen; only SMART-LEA is searched.'
-                        if selection in ('stagewise', 'truth') else '')}
+                     + ('MAP parameters are frozen and true VT coordinates are supplied; only SMART-LEA is searched.'
+                        if selection == 'truth' else
+                        'Upstream reconstruction and MAP parameters are frozen; only SMART-LEA is searched.'
+                        if selection == 'stagewise' else '')}

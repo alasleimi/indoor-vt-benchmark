@@ -860,6 +860,8 @@ async function renderDetail() {
   }
 }
 function selectionExplanation() {
+  if (currentMethod.exploratory)
+    return "Exploratory grouping change, with no recalibration. The common proposer uses the standard empty-room OSPA-selected settings (half-window 2, range weight 0.7, neighborhood size 5, unification off). Each finisher keeps its previously selected parameters. The separately tuned support-first method uses half-window 6, so it is a different reference from the controlled half-window-2 ablation. Promotion was based on this room's observed noise comparisons; this is not an independently validated winner.";
   if (currentMethod.family === "range_rmse")
     return `Fixed numerical settings, with no calibration search. At each noise realization and for each AP, run 16 starts and keep the one with the lowest measured range residual. OSPA, F1, matched RMSE and true source coordinates do not select the result. Only the true source count for this scene and AP is supplied: A=${currentRow?.source_counts?.[0]?.true.A ?? 25}, B=${currentRow?.source_counts?.[0]?.true.B ?? 25}, including the direct AP when visible. Its position is also estimated.`;
   if (currentMethod.selection === "joint")
@@ -989,7 +991,7 @@ function parameterTable(parameters, title) {
 }
 function renderParameters(panel) {
   if (hasReconstructionExplanation(currentMethod)) {
-    const other = currentMethod.selection === "ospa" ? {} :
+    const other = currentMethod.selection === "ospa" || currentMethod.exploratory ? {} :
       Object.fromEntries(Object.entries(activeReceipt.parameters).filter(([key]) => key !== "source"));
     const frozen = Object.fromEntries(Object.entries(activeReceipt.frozen || {}).filter(([key]) => key !== "source"));
     panel.innerHTML = finisherParameterSummary(currentMethod, activeReceipt) +
@@ -1200,6 +1202,10 @@ function searchPlot(trials) {
   return `<svg viewBox="0 0 ${w} ${h}" role="img" aria-label="Calibration trial loss and best-so-far loss"><path d="M${L} ${T}V${h - B}H${w - R}" fill="none" stroke="#d6e0dc"/><text x="${L - 6}" y="${T + 8}" text-anchor="end" font-size="10" fill="#6c7c76">${fmt(max, 2)}</text><text x="${L - 6}" y="${h - B}" text-anchor="end" font-size="10" fill="#6c7c76">0</text>${dots}<polyline points="${points.join(" ")}" fill="none" stroke="#16836e" stroke-width="2"/><text x="${L}" y="${h - 8}" font-size="10" fill="#6c7c76">Trial 1</text><text x="${w - R}" y="${h - 8}" text-anchor="end" font-size="10" fill="#6c7c76">Trial ${ordered.at(-1).number + 1}</text></svg>`;
 }
 function renderSearch(panel) {
+  if (currentMethod.exploratory) {
+    panel.innerHTML = `<h3>No new hyperparameter search</h3><p>${selectionExplanation()}</p>${parameterTable(activeReceipt.parameters, "Frozen numerical settings")}`;
+    return;
+  }
   if (currentMethod.family === "range_rmse") {
     panel.innerHTML = `<h3>No hyperparameter search</h3><p>${selectionExplanation()}</p><p>The 16 starts are attempts to minimize the same measured-range objective, not configurations selected using reconstruction truth. The Evidence tab contains each start's initialization, iterations, stopping reason and squared-residual history for the selected noise condition.</p>`;
     return;

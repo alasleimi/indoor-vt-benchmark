@@ -112,6 +112,9 @@ class ExperimentView:
         from .presentation import search_spec
         for method in catalog['methods']:
             method['search_spec'] = search_spec(method, self.config)
+            if method.get('exploratory'):
+                method['selected_id'] = next(r['id'] for r in results
+                                             if r['label'] == method['label'] and r['level'] == 0)
         if self.config.get("engine") == "compositions":
             settings = self.config["compositions"]
             source_counts = {}
@@ -388,6 +391,7 @@ class MultiStudyView:
                          "rectangle-naked-selection-v1", "rectangle-range-rmse-true-count-v1",
                          "rectangle-allow-crossing-solo-v1", "rectangle-allow-crossing-consumption-v1",
                          "rectangle-allow-crossing-robust-v1",
+                         "rectangle-stars-v1",
                          obstacle_name):
                 extra = self.run_root.parent / name
                 if not (extra / "implementation.json").exists() or any(v.run_root == extra for v in self.views):

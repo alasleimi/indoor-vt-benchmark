@@ -34,8 +34,11 @@ def artifact_keys(value):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--output', default='published/redesign')
+    parser.add_argument('--incremental', action='store_true', help='Keep previously exported immutable outcome IDs')
     args = parser.parse_args()
     root = Path(args.output)
+    previous = (json.loads(gzip.decompress((root/'manifest.json.gz').read_bytes()))
+                if args.incremental and (root/'manifest.json.gz').exists() else {})
     view = MultiStudyView('data/redesign/rectangle-20261025', 'runs/redesign/rectangle-clean-selection-v4')
     overview = view.overview()
     lookup, owners, constructors = {}, {}, {}
@@ -70,13 +73,16 @@ def main():
         if not (owner.run_root / receipt['outcome']).exists():
             absent.append(key)
             continue
+        if args.incremental and (root/'results'/f'{key}.json.gz').exists():
+            exported.append(key)
+            continue
         result = owner.result(key)
         write(root/'results'/f'{key}.json.gz', result)
         exported.append(key)
         artifacts.update(artifact_keys([c.get('audit') for c in result['cases']]))
         if len(exported) % 100 == 0:
             print(f'{len(exported)} saved outcomes exported', flush=True)
-    retained = []
+    retained = list(previous.get('retained_artifact_previews', []))
     for key in sorted(artifacts):
         for owner in view.views:
             try:
@@ -89,10 +95,14 @@ def main():
     peaks = PeakExplorer(view)
     context = peaks.context('')
     default = peaks.request('init')
+    if previous and previous['default_trial'] != default['meta']['trial']:
+        raise ValueError('Matching selection changed; use a full export for the observation snapshot')
     write(root/'matching-init.json.gz', default)
     for repetition in (0, 2, 3):
         for ap in ('A', 'B'):
             for level in default['meta']['noise_levels']:
+                if args.incremental and (root/'profiles'/f'{repetition}-{ap}-{level:g}.json.gz').exists():
+                    continue
                 data = peaks.profiles(context, ap, level, repetition=repetition)
                 write(root/'profiles'/f'{repetition}-{ap}-{level:g}.json.gz',
                       {'profiles': data['profiles'], 'sources': data['sources']})
@@ -109,6 +119,8 @@ def main():
                 'retained_artifact_previews': retained, 'missing_outcomes': absent,
                 'receipt_labels': {k: r['label'] for k, r in lookup.items()},
                 'default_trial': default['meta']['trial']}
+    if previous.get('matching_precomputed'):
+        manifest['matching_precomputed'] = True
     write(root/'manifest.json.gz', manifest)
     total = sum(p.stat().st_size for p in root.rglob('*.gz'))
     print(f'Complete: {len(exported)} outcomes, {len(retained)} cached previews, {total/1024**2:.1f} MiB', flush=True)

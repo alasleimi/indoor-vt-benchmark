@@ -20,6 +20,20 @@ FINISHER_DISPLAY_NAMES = {
 
 def method_entries(receipt):
     method, label = receipt["method"], receipt["label"]
+    if method in ('mpurge_stars_consumption', 'mpurge_stars_robust'):
+        finishing = method.removeprefix('mpurge_stars_')
+        entry, = method_entries({**receipt, 'method': 'mpurge_' + finishing})
+        name = 'MPUrge stars + ' + FINISHER_DISPLAY_NAMES[finishing]
+        code = {k: list(v) for k, v in entry['code'].items()}
+        code['Composition constructors'] = [constructor_link('execution/star_experiment.py', 'star_reconstructor')]
+        code['Algorithm steps'] = [link for link in code['Algorithm steps'] if link.get('label') != 'ConnectedComponentsGrouper()']
+        code['Algorithm steps'].append(constructor_link('science/grouping.py', 'StarGrouper'))
+        code['Execution and experiment configuration'].insert(0, 'execution/star_experiment.py')
+        return [{**entry, 'name': name, 'title': name + ' · Frozen settings · Unification off',
+                 'source_full_name': name, 'selection': 'fixed', 'selection_label': 'Frozen exploratory variant',
+                 'tuning': 'Frozen exploratory variant', 'subtitle': 'Local stars; no recalibration',
+                 'grouping': 'stars', 'exploratory': True, 'search_text': name,
+                 'code': code, 'tags': entry['tags'] + ['grouping:stars', 'selection:exploratory']}]
     if method == "range_rmse_true_count":
         name = "Range RMSE (cheating true count)"
         return [{"id": label, "label": label, "name": name, "group": "vt",

@@ -16,6 +16,11 @@ experiments, run `.venv/Scripts/python.exe scripts/export_viewer_snapshot.py`.
 The export reads saved outcomes and does not rerun calibration. Pushes to the
 `alasleimi/indoor-vt-benchmark` main branch deploy through GitHub Pages.
 
+[Local stars and edge-weighting ablations](docs/star-weight-ablation/README.md)
+compare grouping, similarity/distance weights and both finishers without
+recalibration. The two unweighted star-plus-finisher variants are included in
+the viewer as frozen exploratory methods; the full report retains every arm.
+
 The redesign separates scientific components from caching, audit storage, and
 experiment execution. Start with the **[redesign brief](docs/redesign.md)**; it
 links the three detailed design documents. [Implementation status](docs/implementation_status.md)
