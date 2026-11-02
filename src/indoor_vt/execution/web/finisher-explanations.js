@@ -189,13 +189,31 @@ function finisherSteps(method,p,start) {
   return [associationStep(p),rankingStep(robust,p),...(robust?[refinementStep(p)]:[]),acceptanceStep(robust,p),consumptionStep(start)];
 }
 
+function chamferStep(parameters) {
+  return step('chamfer-localization', 'Estimate the query coordinate with Chamfer-kNN',
+    settings(val('k',parameters.neighbors),val('p',parameters.power))+
+    `<p>For AP ${math('a')}, let ${math('Q_a')} be the observed query ranges and ${math('R_{ia}')} the ranges at reference receiver ${math('i')}, whose known coordinate is ${math('x_i')}. Each directed term pairs every range with its nearest range; the same counterpart may be used more than once.</p>`+
+    eq(String.raw`c(Q,R)=\frac12\left(\frac1{|Q|}\sum_{q\in Q}\min_{r\in R}|q-r|+\frac1{|R|}\sum_{r\in R}\min_{q\in Q}|r-q|\right),\qquad d_i=\frac1{|\mathcal A|}\sum_{a\in\mathcal A}c(Q_a,R_{ia})`)+
+    `<p>${math(String.raw`\mathcal A`)} is the set of observed APs (A and B). Empty query/reference fingerprints give infinite cost. Average the AP costs first, then retain up to ${math('k')} references with the smallest finite ${math('d_i')}; denote this set ${math('B')}. Ties retain reference order.</p>`+
+    eq(String.raw`u_0=\frac{\sum_{i\in B}d_i^{-p}x_i}{\sum_{i\in B}d_i^{-p}}`)+
+    `<p>If a selected cost is at most float64 machine epsilon, average only those effectively zero-cost references. With no finite cost, use the survey centroid. ${math('u_0')} is a 3D coordinate in metres. Chamfer has no one-to-one peak matching, pattern window, range/pattern weight, coverage penalty or peak-count unification.</p>`,
+    [['chamfer_knn','execution/chamfer_experiment.py'],['ChamferScorer','science/localization.py'],['DistanceWeightedKNN','science/localization.py']]);
+}
+
+export function chamferExplanation(method,receipt) {
+  const parameters=receipt.parameters.map || receipt.parameters;
+  const steps=method.component==='localization' && receipt.parameters.lea
+    ? localizationSteps(method,receipt) : [chamferStep(parameters)];
+  return ordered(method,'Query localization',1,steps,'data-stage="localization"');
+}
+
 function localizationSteps(method,receipt) {
   if(method.component!=="localization")return [];
   const map=receipt.parameters?.map||receipt.frozen?.map;
   const lea=receipt.parameters?.lea||receipt.parameters;
   if(!map||!lea)return [];
   return [
-    step("map-localization", "Initialize the query coordinate with MPUrge-MAP",
+    method.initializer==='chamfer_knn' ? chamferStep(map) : step("map-localization", "Initialize the query coordinate with MPUrge-MAP",
       settings(val(String.raw`k_{\rm MAP}`,map.neighbors),val("p",map.power),val(String.raw`\alpha_{\rm MAP}`,map.alpha),val(String.raw`h_{\rm MAP}`,map.half_window))+
       `<p>Let ${math(String.raw`r_j^\ell`)} be observed query ranges for AP ${math(String.raw`\ell`)}. Match them to every reference fingerprint using MPUrge's sorting, optional unification, reciprocal minima and purging. Here the window-pattern sum is divided by ${math(String.raw`\binom{2h_{\rm MAP}+1}{2}`)} when the window is active. Use the MAP settings above, independently of source-reconstruction settings.</p>
       <p>For receiver ${math("i")} and AP ${math(String.raw`\ell`)}, let ${math(String.raw`\mathcal C_{i\ell}`)} contain the accepted query/reference pairs, ${math(String.raw`M_{i\ell}=|\mathcal C_{i\ell}|`)}, and ${math(String.raw`m_q^\ell,m_i^\ell`)} be the original peak counts. Average the coverage-adjusted costs across the ${math("L")} query APs:</p>
@@ -208,7 +226,7 @@ function localizationSteps(method,receipt) {
       `<p>At iteration ${math("t")}, predict ${math(String.raw`\|u_t-v_k^\ell\|_2`)} from the reconstructed source coordinates ${math(String.raw`v_k^\ell\in\mathcal V_\ell`)}. Match each AP's measured query ranges to its predicted ranges with MPUrge and the LEA settings above; its window sum is <strong>not normalized</strong>. Combine accepted associations into ${math(String.raw`\mathcal C_t=\{(\ell,j,k)\}`)}.</p>
       <p class="optimization-variable"><strong>Optimize:</strong> query coordinate ${math(String.raw`u\in\mathbb R^3`)}. <strong>Hold fixed:</strong> associations ${math(String.raw`\mathcal C_t`)}, measured query ranges and source coordinates.</p>
       ${eq(String.raw`\min_{u\in\mathbb R^3}\frac12\sum_{(\ell,j,k)\in\mathcal C_t}\left(\|u-v_k^\ell\|_2-r_j^\ell\right)^2`)}
-      <p>Initialize at ${math("u_t")}; use Levenberg–Marquardt, at most 100 evaluations. Require at least four matched anchors with centered rank three. Rebuild associations at the returned coordinate and repeat for the selected iteration count. If an iteration has no matches, insufficient geometry or solver failure, return the <strong>original MAP coordinate</strong> ${math("u_0")}. Otherwise return the last coordinate. Sources stay fixed throughout localization.</p>`,[["smart_lea","execution/presets.py"],["SmartLEA","science/localization.py"],["Multilateration3D","science/estimation.py"]]),
+      <p>Initialize at ${math("u_t")}; use Levenberg–Marquardt, at most 100 evaluations. Require at least four matched anchors with centered rank three. Rebuild associations at the returned coordinate and repeat for the selected iteration count. If an iteration has no matches, insufficient geometry or solver failure, return the <strong>original ${method.initializer === 'chamfer_knn' ? 'Chamfer-kNN' : 'MAP'} coordinate</strong> ${math("u_0")}. Otherwise return the last coordinate. Sources stay fixed throughout localization.</p>`,[["smart_lea","execution/presets.py"],["SmartLEA","science/localization.py"],["Multilateration3D","science/estimation.py"]]),
   ];
 }
 

@@ -20,6 +20,46 @@ FINISHER_DISPLAY_NAMES = {
 
 def method_entries(receipt):
     method, label = receipt["method"], receipt["label"]
+    if method.startswith('chamfer_'):
+        standalone = method == 'chamfer_knn'
+        supplier = method.removeprefix('chamfer_').removesuffix('_joint')
+        surrogate = 'mpurge_map' if standalone else 'joint' if supplier == 'mpurge' else supplier + '_joint'
+        entries = method_entries({**receipt, 'method': surrogate})
+        for entry in entries:
+            for key in ('name', 'title', 'subtitle', 'tuning', 'selection_label', 'selection_description',
+                        'unification_scope', 'search_text'):
+                if isinstance(entry.get(key), str):
+                    entry[key] = entry[key].replace('MPUrge-MAP', 'Chamfer-kNN').replace('MAP', 'Chamfer-kNN')
+            entry['initializer'] = 'chamfer_knn'
+            entry['unification_scope'] = ('Not applicable to Chamfer-kNN' if standalone else
+                'MPUrge reconstruction and SMART-LEA; not Chamfer-kNN' if supplier == 'mpurge' else
+                'SMART-LEA only; not Chamfer-kNN or the VT supplier')
+            mode_label = ('Unification N/A' if standalone else
+                ('MPUrge/LEA unification ' if supplier == 'mpurge' else 'LEA unification ') +
+                ('on' if receipt['unify'] else 'off'))
+            old_label = entry['unification_label'].replace('MPUrge-MAP', 'Chamfer-kNN').replace('MAP', 'Chamfer-kNN')
+            for key in ('title', 'subtitle'):
+                entry[key] = entry[key].replace(old_label, mode_label)
+            entry['unification_label'] = mode_label
+            entry['tags'].append('initializer:chamfer_knn')
+            if standalone:
+                entry.update(family='chamfer', source_full_name=None)
+                entry['tags'] = ['family:chamfer', 'initializer:chamfer_knn', 'unification:n/a']
+            # code_links is cached and shared with the existing MPUrge-MAP rows.
+            code = entry['code'] = {group: list(links) for group, links in entry['code'].items()}
+            for group, links in code.items():
+                code[group] = [link for link in links if not (isinstance(link, dict) and
+                    link.get('label') in ('mpurge_map()', 'MatchBasedScorer()'))]
+            code.setdefault('Composition constructors', []).append(
+                constructor_link('execution/chamfer_experiment.py', 'chamfer_knn'))
+            if not standalone:
+                code['Composition constructors'].insert(0,
+                    constructor_link('execution/chamfer_experiment.py', 'supplier_constructor'))
+            if entry['component'] != 'sources':
+                code.setdefault('Algorithm steps', []).extend(constructor_link('science/localization.py', k)
+                    for k in ('ChamferScorer', 'DistanceWeightedKNN'))
+            code['Execution and experiment configuration'].insert(0, 'execution/chamfer_experiment.py')
+        return entries
     if method in ('mpurge_stars_consumption', 'mpurge_stars_robust'):
         finishing = method.removeprefix('mpurge_stars_')
         entry, = method_entries({**receipt, 'method': 'mpurge_' + finishing})

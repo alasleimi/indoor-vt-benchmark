@@ -97,6 +97,29 @@ test("pipeline explanations retain MAP and fixed-source SMART-LEA after reconstr
   assert.doesNotMatch(html,/undefined|katex-error/);
 });
 
+test('Chamfer initializer has symmetric nearest-range formula and no fabricated matcher settings',()=>{
+  const m={...method('chamfer',null),component:'localization',group:'raw',initializer:'chamfer_knn'};
+  const r={parameters:{neighbors:3,power:2},unify:null};
+  const html=explanation.chamferExplanation(m,r);
+  assert.deepEqual(steps(html),['chamfer-localization']);
+  assert.ok(html.includes(String.raw`\min_{r\in R}|q-r|`));
+  assert.ok(html.includes(String.raw`\min_{q\in Q}|r-q|`));
+  assert.match(html,/Average the AP costs first/);
+  assert.match(html,/same counterpart may be used more than once/);
+  assert.doesNotMatch(html,/undefined|katex-error|alpha.*=/);
+});
+
+test('both robust suppliers explain Chamfer then LEA rather than MPUrge-MAP',()=>{
+  for(const family of ['zayets','ransac']){
+    const m={...method(family),component:'localization',group:'pipeline',selection:'joint',initializer:'chamfer_knn'};
+    const r={...receipt(),parameters:{source:parameters,map:{neighbors:3,power:2},lea:{alpha:1,half_window:1,iterations:4}}};
+    const html=explanation.reconstructionExplanation(m,r);
+    assert.deepEqual(steps(html).slice(-2),['chamfer-localization','lea-localization']);
+    assert.match(html,/original Chamfer-kNN coordinate/);
+    assert.doesNotMatch(html,/Initialize the query coordinate with MPUrge-MAP|undefined|katex-error/);
+  }
+});
+
 test("connected-component conflict pruning is visible in both tabs for every MPUrge composition",()=>{
   const grouping={file:"science/grouping.py",line:113,label:"ConnectedComponentsGrouper()"};
   for(const finishing of [null,"robust","consumption"]){

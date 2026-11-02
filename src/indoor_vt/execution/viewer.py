@@ -51,7 +51,10 @@ class ExperimentView:
     def __init__(self, data_root, run_root):
         self.data_root, self.run_root = Path(data_root), Path(run_root)
         self.config = read_json(self.run_root / "config.json")
-        if self.config.get("engine") == "range_rmse":
+        if self.config.get("engine") == "chamfer":
+            from .chamfer_experiment import ChamferEvaluator
+            self.evaluator = ChamferEvaluator(data_root, self.config, "viewer")
+        elif self.config.get("engine") == "range_rmse":
             from .range_rmse_experiment import RangeRMSEEvaluator
             self.evaluator = RangeRMSEEvaluator(data_root, self.config, "viewer")
         elif self.config.get("engine") == "compositions":
@@ -175,6 +178,11 @@ class ExperimentView:
 
     def check_replay_version(self):
         version = read_json(self.run_root / "implementation.json")
+        if self.config.get('engine') == 'chamfer':
+            if (version['id'] != implementation_id() or
+                    version['dataset'] != digest(read_json(self.data_root / 'dataset.json'))):
+                raise ValueError('Chamfer numerical implementation or dataset differs from this saved run')
+            return
         if self.config.get("engine") == "range_rmse":
             root = Path(__file__).parents[1]
             if (version["solver"] != digest((root / "science/range_rmse.py").read_text())
@@ -332,7 +340,10 @@ class ExperimentView:
                 raise ValueError("Survey row is out of bounds")
             from .compositions import VARIANTS, composed_reconstructor
             variant = receipt["method"].removesuffix("_joint").removesuffix("_lea")
-            if variant in VARIANTS:
+            if receipt['method'] == 'chamfer_mpurge_joint':
+                parameters = receipt['parameters']['source']
+                matcher = standard_mpurge(parameters, unify=receipt['unify']).matcher
+            elif variant in VARIANTS:
                 if not variant.startswith("mpurge"):
                     raise ValueError("This proposer does not use MPUrge survey peak matching")
                 parameters = (receipt["parameters"] if receipt["method"] == variant else
@@ -348,6 +359,8 @@ class ExperimentView:
             separation = float(np.linalg.norm(survey.xyz[left] - survey.xyz[right]))
             result = matcher.match(a, b, separation=separation)
         elif kind == "query":
+            if receipt['method'].startswith('chamfer_'):
+                raise ValueError('Chamfer uses bidirectional nearest-range distances, not one-to-one peak matches')
             parameters = receipt["parameters"] if receipt["method"] == "mpurge_map" else (
                 receipt["parameters"]["map"] if (receipt["method"] == "joint" or receipt["method"].endswith("_joint")) else receipt["frozen"]["map"])
             selected_layout = next(item for item in room["layouts"] if str(item["id"]) == str(layout))
@@ -393,6 +406,8 @@ class MultiStudyView:
                          "rectangle-allow-crossing-solo-v1", "rectangle-allow-crossing-consumption-v1",
                          "rectangle-allow-crossing-robust-v1",
                          "rectangle-stars-v1",
+                         "rectangle-chamfer-standalone-v1", "rectangle-chamfer-mpurge-v1",
+                         "rectangle-chamfer-zayets_robust-v1", "rectangle-chamfer-ransac-v1",
                          obstacle_name):
                 extra = self.run_root.parent / name
                 if not (extra / "implementation.json").exists() or any(v.run_root == extra for v in self.views):

@@ -2,7 +2,7 @@ import "./site-runtime.js";
 import {strictMetricWinners} from "./pareto.mjs";
 import {finisherNames, finisherParameterSummary, sourceParameters,
   hasReconstructionExplanation, reconstructionExplanation,
-  connectedComponentSourceOverview, sourceMetricExplanation} from "/finisher-explanations.js";
+  connectedComponentSourceOverview, sourceMetricExplanation, chamferExplanation} from "/finisher-explanations.js";
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) =>
@@ -52,8 +52,8 @@ const viewNames = {
 };
 const descriptions = {
   vt: "Compare reconstructed source maps across noise levels, with each method's selection protocol shown below.",
-  raw: "MPUrge-MAP estimates before SMART-LEA refinement. Joint labels identify the pipeline that selected the MAP parameters.",
-  all: "MPUrge-MAP initializes each position; SMART-LEA refines it using the listed VT source. Raw rows show MAP only.",
+  raw: "Fingerprint estimates before SMART-LEA refinement. Joint labels identify the pipeline that selected the initializer parameters.",
+  all: "The listed fingerprint method initializes each position; SMART-LEA refines it using the listed VT source. Raw rows show the initializer only.",
 };
 let data,
   rows = [],
@@ -170,6 +170,7 @@ const tagGroups = {
     ["family:mpurge", "MPUrge"],
     ["family:zayets", "Zayets"],
     ["family:ransac", "RANSAC"],
+    ["initializer:chamfer_knn", "Chamfer-kNN initializer"],
   ],
   Finishing: [
     ["finisher:consumption", finisherNames.consumption],
@@ -445,7 +446,7 @@ function fillControls() {
     ]
       .map(
         (s) =>
-          `<option value="${s}">${s === "joint" && state.view === "vt" ? "Joint with MPUrge-MAP + SMART-LEA" : selectionNames[s]}</option>`,
+          `<option value="${s}">${selectionNames[s]}</option>`,
       )
       .join("");
   if (![...$("selection").options].some((o) => o.value === state.selection))
@@ -894,8 +895,8 @@ async function renderDetail() {
   }
   if (["method", "code"].includes(detailTab)) {
     const url = `/construction?trial=${activeReceipt.id}&component=${currentMethod.component}`;
-    panel.querySelectorAll('a[href*="execution%2Fcompositions.py"], a[href*="execution%2Fpresets.py"], a[href*="execution/compositions.py"], a[href*="execution/presets.py"]').forEach(a => {
-      if (/constructor|composed_reconstructor|standard_mpurge|mpurge_map|smart_lea/i.test(a.textContent)) {
+    panel.querySelectorAll('a[href*="execution%2Fcompositions.py"], a[href*="execution%2Fpresets.py"], a[href*="execution/compositions.py"], a[href*="execution/presets.py"], a[href*="execution%2Fchamfer_experiment.py"]').forEach(a => {
+      if (/constructor|composed_reconstructor|standard_mpurge|mpurge_map|smart_lea|chamfer_knn|supplier_constructor/i.test(a.textContent)) {
         a.href = url;
         a.textContent = "Concrete method construction ↗";
       }
@@ -919,6 +920,11 @@ async function renderDetail() {
   }
 }
 function selectionExplanation() {
+  if (currentMethod.initializer === 'chamfer_knn')
+    return (currentMethod.selection === 'joint'
+      ? `${esc(currentMethod.source_full_name)}, Chamfer-kNN and SMART-LEA are selected jointly by final mean 3D localization error. ${currentMethod.group === 'vt' ? 'This row displays the saved source stage; its OSPA did not select the configuration. ' : currentMethod.group === 'raw' ? 'This row displays the saved Chamfer initializer before refinement. ' : ''}`
+      : 'Chamfer-kNN searches 12 neighbor-count/weighting-power combinations by mean 3D localization error. ') +
+      'The reference and VT survey is empty and noise-free. Calibration uses 60 noise-free queries in each of the 0, 1, 3 and 5 obstacle layouts (240 total). Parameters are frozen before testing the remaining 40 query positions per layout across noise levels. ' + esc(currentMethod.unification_scope) + '.';
   if (currentMethod.exploratory)
     return "Exploratory grouping change, with no recalibration. The common proposer uses the standard empty-room OSPA-selected settings (half-window 2, range weight 0.7, neighborhood size 5, unification off). Each finisher keeps its previously selected parameters. The separately tuned support-first method uses half-window 6, so it is a different reference from the controlled half-window-2 ablation. Promotion was based on this room's observed noise comparisons; this is not an independently validated winner.";
   if (currentMethod.family === "range_rmse")
@@ -984,7 +990,7 @@ function parameterTable(parameters, title) {
     ([, value]) => value === null || typeof value !== "object",
   );
   const isMap =
-    title.includes("MPUrge-MAP") || activeReceipt.method === "mpurge_map";
+    title.includes("MPUrge-MAP") || title.includes('Chamfer-kNN') || activeReceipt.method === "mpurge_map" || activeReceipt.method === 'chamfer_knn';
   const groups = [
     ["Numerical optimization", ["starts", "max_iterations", "max_nfev", "relative_tolerance", "seed"]],
     [
@@ -1039,7 +1045,7 @@ function parameterTable(parameters, title) {
           {
             mpurge: "MPUrge reconstruction",
             source: currentMethod.source_full_name,
-            map: "MPUrge-MAP",
+            map: currentMethod.initializer === 'chamfer_knn' ? 'Chamfer-kNN' : "MPUrge-MAP",
             lea: "SMART-LEA",
           }[key] || key,
         ),
@@ -1054,6 +1060,7 @@ function renderParameters(panel) {
       Object.fromEntries(Object.entries(activeReceipt.parameters).filter(([key]) => key !== "source"));
     const frozen = Object.fromEntries(Object.entries(activeReceipt.frozen || {}).filter(([key]) => key !== "source"));
     panel.innerHTML = finisherParameterSummary(currentMethod, activeReceipt) +
+      (currentMethod.initializer === 'chamfer_knn' ? `<p class="detail-hint">Unification scope: ${esc(currentMethod.unification_scope)}.</p>` : '') +
       (Object.keys(other).length ? parameterTable(other, "Localization parameters") : "") +
       (Object.keys(frozen).length ? parameterTable(frozen, "Frozen localization parameters") : "") +
       `<details class="receipt-details"><summary>Parameter selection and exact record</summary><p>${selectionExplanation()}</p><pre>${esc(JSON.stringify({ parameters: activeReceipt.parameters, frozen: activeReceipt.frozen, unify: activeReceipt.unify }, null, 2))}</pre></details>` +
@@ -1093,7 +1100,9 @@ function renderParameters(panel) {
       "afterbegin",
       `<p class="detail-hint">${esc(currentMethod.search_description)}</p>`,
     );
-  if (currentMethod.family !== "mpurge" && activeReceipt.unify !== null)
+  if (currentMethod.initializer === 'chamfer_knn')
+    panel.insertAdjacentHTML('afterbegin', `<p class="detail-hint">Unification scope: ${esc(currentMethod.unification_scope)}.</p>`);
+  else if (currentMethod.family !== "mpurge" && activeReceipt.unify !== null)
     panel.insertAdjacentHTML(
       "afterbegin",
       '<p class="detail-hint">Size unification applies to the MPUrge-MAP and SMART-LEA matchers. The source reconstructor and its finisher do not use it.</p>',
@@ -1143,6 +1152,13 @@ function renderMethod(panel) {
       obstacleEvaluationNote() +
       `<details class="algorithm-detail"><summary>Parameter selection and displayed metrics</summary><p>${selectionExplanation()}</p><p>${currentMethod.group === "vt" ? "OSPA: p = 1, cutoff 1 m. F1: one-to-one matches within 0.5 m. Matched RMSE: square root of the mean squared 3D distance over maximum-cardinality matches, using the assignment with the smallest squared distance. Unmatched sources are excluded from matched RMSE. Metrics use the selected APs." : "This reconstruction supplies the source map for the selected localization pipeline. Query errors compare estimated and true 3D receiver coordinates."}</p></details>`;
     if (currentMethod.group === "vt") panel.innerHTML += sourceMetricExplanation();
+    return;
+  }
+  if (currentMethod.initializer === 'chamfer_knn' && currentMethod.component !== 'sources') {
+    panel.innerHTML = (currentMethod.component === 'localization' ? connectedComponentSourceOverview(currentMethod) : '') +
+      chamferExplanation(currentMethod, activeReceipt) +
+      `<h3>Selection and evaluation</h3><p>${selectionExplanation()}</p><p>Errors are Euclidean distances between estimated and true 3D query coordinates. All fallback estimates remain in the metrics.</p>` +
+      codeLinks(['Composition constructors', 'Scientific algorithms', 'Execution and experiment configuration']);
     return;
   }
   if (currentMethod.family === "range_rmse") {
@@ -1704,15 +1720,15 @@ function renderEvidence(panel) {
     openArtifact(auditHistory.at(-1), false);
   };
   root();
-  const hasSurvey =
+  const hasSurvey = activeReceipt.method === 'chamfer_mpurge_joint' || (currentMethod.initializer !== 'chamfer_knn' && (
     activeReceipt.method === "mpurge" ||
     activeReceipt.method.startsWith("mpurge_triangle") ||
     activeReceipt.method.startsWith("mpurge_allow_crossing") ||
     activeReceipt.method.startsWith("mpurge_consumption") ||
     activeReceipt.method.startsWith("mpurge_robust") ||
     activeReceipt.method === "joint" ||
-    !!activeReceipt.frozen?.mpurge;
-  const hasQuery = activeReceipt.obstacle_count === undefined && (
+    !!activeReceipt.frozen?.mpurge));
+  const hasQuery = currentMethod.initializer !== 'chamfer_knn' && activeReceipt.obstacle_count === undefined && (
     activeReceipt.method === "mpurge_map" ||
     activeReceipt.method === "joint" ||
     activeReceipt.method.endsWith("_joint") ||

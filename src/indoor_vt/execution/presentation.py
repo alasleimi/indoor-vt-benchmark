@@ -35,6 +35,24 @@ def expression(value, indent=0):
 def construction(receipt, config, component='sources'):
     method, p, frozen = receipt['method'], receipt['parameters'], receipt.get('frozen') or {}
     unify = receipt.get('unify')
+    if method.startswith('chamfer_'):
+        from .chamfer_experiment import chamfer_knn, supplier_constructor
+        standalone = method == 'chamfer_knn'
+        objects = []
+        if not standalone and component != 'initial':
+            family = method.removeprefix('chamfer_').removesuffix('_joint')
+            objects.append(('method' if component == 'sources' else 'reconstructor',
+                supplier_constructor(family, p['source'], unify=unify,
+                    seed=config['additional']['proposal_seed'])))
+        if component != 'sources':
+            objects.append(('method' if standalone or component == 'initial' else 'initializer',
+                            chamfer_knn(p if standalone else p['map'])))
+            if not standalone and component != 'initial':
+                objects.append(('refiner', smart_lea(p['lea'], unify=unify)))
+        return {'code': '\n\n'.join(name + ' = ' + expression(value) for name, value in objects),
+                'notes': ['Chamfer uses symmetric nearest-range distances. It has no pair matcher, '
+                          'pattern window, alpha, coverage penalty, or peak unification.'],
+                'receipt_id': receipt['id'], 'component': component, 'parameters': p, 'frozen': frozen}
     variant = method.removesuffix('_joint').removesuffix('_lea')
     joint = method == 'joint' or method.endswith('_joint')
     source_only = method == 'mpurge' or method in VARIANTS or method in ('zayets', 'ransac')
@@ -102,6 +120,21 @@ def effective_count(space):
 def search_spec(method, config):
     selection, family = method['selection'], method['family']
     opt = config['optimization']
+    if method.get('initializer') == 'chamfer_knn':
+        settings = config['chamfer']
+        standalone = selection == 'localization'
+        supplier = method['label'].removesuffix('_ununified').removesuffix('_unified').removeprefix('chamfer_').removesuffix('_joint')
+        grids = {'Chamfer-kNN': settings['initializer']} if standalone else {
+            'Reconstruction': settings['suppliers'][supplier], 'Chamfer-kNN': settings['initializer'],
+            'SMART-LEA': opt['smart_lea']}
+        return {'strategy': 'Exhaustive Cartesian grid' if standalone else
+                'Seeded random configurations without replacement, including the recorded previous-pipeline baseline',
+                'grids': grids, 'budget': effective_count(settings['initializer']) if standalone else settings['joint_trials'],
+                'seed': None if standalone else Seeds(opt['seed']).seed('chamfer-joint', supplier, method['unify']),
+                'base_seed': opt['seed'], 'effective_configurations': prod(effective_count(s) for s in grids.values()),
+                'raw_configurations': prod(prod(len(v) for v in s.values()) for s in grids.values()),
+                'notes': settings['selection_protocol'] + ' ' + ('' if standalone else settings['baseline_protocol']) +
+                    ' Chamfer searches only neighbor count and inverse-distance power; unification never changes its distances.'}
     variant = method['label'].removesuffix('_ununified').removesuffix('_unified').removesuffix('_joint').removesuffix('_lea')
     if selection == 'fixed':
         return {'strategy': 'Fixed settings; no calibration search', 'grids': {}}

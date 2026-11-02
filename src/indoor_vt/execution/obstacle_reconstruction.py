@@ -133,7 +133,7 @@ def frozen_source_spec(receipt, config):
     if method == "joint":
         method, p = "mpurge", p["mpurge"]
     elif method.endswith("_joint"):
-        method, p = method.removesuffix("_joint"), p["source"]
+        method, p = method.removesuffix("_joint").removeprefix('chamfer_'), p["source"]
     if method not in ("mpurge", "range_rmse_true_count", "zayets", "ransac", *VARIANTS):
         raise ValueError(f"Unsupported source method {method}")
     return {"method": method, "parameters": p, "unify": receipt["unify"],
