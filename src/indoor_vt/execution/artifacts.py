@@ -32,7 +32,9 @@ class ArtifactRef:
 @lru_cache(maxsize=1)
 def implementation_id():
     root = Path(__file__).parents[1]
-    paths = sorted((root / "science").glob("*.py"))
+    # PointNet is a separate, checkpoint-versioned extension. Adding it does not
+    # change any numerical dependency of the original benchmark methods.
+    paths = sorted(p for p in (root / "science").glob("*.py") if p.name != 'pointnet.py')
     paths += [Path(__file__).with_name(n + ".py") for n in
               ("reconstruction", "localization", "presets")]
     paths += [root / "acquisition" / (n + ".py") for n in ("observations", "channel")]

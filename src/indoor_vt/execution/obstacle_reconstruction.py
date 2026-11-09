@@ -129,12 +129,13 @@ def visible_source_catalog(observations, room, layout):
 
 
 def frozen_source_spec(receipt, config):
+    from .pointnet import METHODS
     method, p = receipt["method"], receipt["parameters"]
     if method == "joint":
         method, p = "mpurge", p["mpurge"]
     elif method.endswith("_joint"):
         method, p = method.removesuffix("_joint").removeprefix('chamfer_'), p["source"]
-    if method not in ("mpurge", "range_rmse_true_count", "zayets", "ransac", *VARIANTS):
+    if method not in ("mpurge", "range_rmse_true_count", "zayets", "ransac", *VARIANTS, *METHODS):
         raise ValueError(f"Unsupported source method {method}")
     return {"method": method, "parameters": p, "unify": receipt["unify"],
             "proposal_seed": config.get("additional", {}).get("proposal_seed", 9173),
@@ -142,8 +143,11 @@ def frozen_source_spec(receipt, config):
 
 
 def reconstruct(spec, survey, evaluator, truth_count, room_id):
+    from .pointnet import METHODS, PointNetExecution, pointnet_reconstructor
     method, p, unify = spec["method"], spec["parameters"], spec["unify"]
     bank = all_pairs_within(nearest_neighborhoods(survey.xyz, size=40))
+    if method in METHODS:
+        return PointNetExecution(pointnet_reconstructor(p, *METHODS[method]), evaluator.store).fit(survey)
     if method == "mpurge":
         return MPUrgeExecution(standard_mpurge(p, unify=unify), evaluator.store,
                                STUDY, pair_bank=bank).fit(survey)
@@ -173,11 +177,15 @@ def metrics_for_record(record, *, metric_fn=ap_source_metrics):
 
 
 def run_obstacle_reconstruction(data_root, base_run, run_root, *, selection_data_root=None,
-                                study=STUDY, protocol_overrides=None):
+                                study=STUDY, protocol_overrides=None, method_prefix=None):
     from .viewer import MultiStudyView
     view = MultiStudyView(selection_data_root or data_root, base_run)
     overview = view.overview()
     methods = [m for m in overview["methods"] if m["group"] == "vt"]
+    if method_prefix is not None:
+        methods = [m for m in methods if m['id'].startswith(method_prefix)]
+        if not methods:
+            raise ValueError('No completed source methods match the requested prefix')
     run_root = Path(run_root)
     run_root.mkdir(parents=True, exist_ok=True)
     config = {**view.base.config, "name": study, "engine": "obstacle_reconstruction"}

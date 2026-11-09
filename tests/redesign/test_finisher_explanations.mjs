@@ -17,6 +17,19 @@ const method = (family="mpurge", finisher="robust") => ({family, finisher,
 const receipt = (unify=true) => ({parameters:{...parameters}, frozen:{}, unify,
   id:"saved-receipt", run:"saved-run"});
 const steps = html => [...html.matchAll(/<li[^>]+data-step="([^"]+)"/g)].map(x=>x[1]);
+
+test('PointNet has its own network and Hungarian equations for both groupings and all finishers', () => {
+  for (const grouping of ['components','stars']) for (const finisher of [null,'consumption','robust']) {
+    const m={...method('pointnet4m',finisher),grouping};
+    const html=explanation.reconstructionExplanation(m,receipt(false));
+    assert.ok(steps(html).includes('pointnet-probabilities'));
+    assert.ok(steps(html).includes('pointnet-assignment'));
+    assert.doesNotMatch(html,/katex-error|undefined|range-and-window dissimilarity|reciprocal minima/);
+    assert.match(html,/4,000,000-update|4M/);
+    assert.equal(steps(html).includes('finisher-optimization'), finisher==='robust');
+    if(grouping==='components') assert.match(html,/probability-derived edge dissimilarities/);
+  }
+});
 const functionSource = name => {
   const start=app.indexOf(`function ${name}(`), end=app.indexOf("\nfunction ",start+1);
   assert.ok(start>=0);

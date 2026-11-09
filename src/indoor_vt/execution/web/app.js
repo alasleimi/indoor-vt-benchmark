@@ -171,6 +171,10 @@ const tagGroups = {
     ["family:zayets", "Zayets"],
     ["family:ransac", "RANSAC"],
     ["initializer:chamfer_knn", "Chamfer-kNN initializer"],
+    ["family:pointnet4m", "PointNet 4M"],
+    ["matching:hungarian_log_odds", "Hungarian log odds"],
+    ["grouping:components", "Local components"],
+    ["checkpoint:4m", "4M checkpoint"],
   ],
   Finishing: [
     ["finisher:consumption", finisherNames.consumption],

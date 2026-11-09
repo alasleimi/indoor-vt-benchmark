@@ -51,7 +51,10 @@ class ExperimentView:
     def __init__(self, data_root, run_root):
         self.data_root, self.run_root = Path(data_root), Path(run_root)
         self.config = read_json(self.run_root / "config.json")
-        if self.config.get("engine") == "chamfer":
+        if self.config.get("engine") == "pointnet4m":
+            from .pointnet_experiment import PointNetEvaluator
+            self.evaluator = PointNetEvaluator(data_root, self.config, "viewer")
+        elif self.config.get("engine") == "chamfer":
             from .chamfer_experiment import ChamferEvaluator
             self.evaluator = ChamferEvaluator(data_root, self.config, "viewer")
         elif self.config.get("engine") == "range_rmse":
@@ -178,6 +181,12 @@ class ExperimentView:
 
     def check_replay_version(self):
         version = read_json(self.run_root / "implementation.json")
+        if self.config.get('engine') == 'pointnet4m':
+            from .pointnet import CHECKPOINT_SHA256
+            if (version['pointnet_checkpoint'] != CHECKPOINT_SHA256 or
+                    version['dataset'] != digest(read_json(self.data_root/'dataset.json'))):
+                raise ValueError('PointNet checkpoint or observations differ from this saved run')
+            return
         if self.config.get('engine') == 'chamfer':
             if (version['id'] != implementation_id() or
                     version['dataset'] != digest(read_json(self.data_root / 'dataset.json'))):
@@ -295,15 +304,26 @@ class ExperimentView:
                     "survey_xyz": record.get("survey_xyz", room["survey_xyz"][survey_indices(room, **self.config["survey"])]),
                     "obstacles": record.get("obstacles", [])}}
 
+    def get_artifact(self, key):
+        try:
+            return self.store.get(key)
+        except FileNotFoundError:
+            from .pointnet import GRAPH_ROOT
+            path = GRAPH_ROOT / (key+'.npz')
+            if not re.fullmatch(r"[a-f0-9]{64}", key) or not path.exists():
+                raise
+            with np.load(path) as saved:
+                return dict(saved)
+
     def artifact(self, key, trial, field="", start=0):
         if not re.fullmatch(r"[a-f0-9]{64}", key):
             raise ValueError("Invalid artifact ID")
         try:
-            value = self.store.get(key)
+            value = self.get_artifact(key)
         except FileNotFoundError:
             self.replay(trial, refresh=True)
             try:
-                value = self.store.get(key)
+                value = self.get_artifact(key)
             except FileNotFoundError:
                 raise ValueError("Artifact was not retained within the cache budget; inspect a smaller stage") from None
         if field:
@@ -408,6 +428,10 @@ class MultiStudyView:
                          "rectangle-stars-v1",
                          "rectangle-chamfer-standalone-v1", "rectangle-chamfer-mpurge-v1",
                          "rectangle-chamfer-zayets_robust-v1", "rectangle-chamfer-ransac-v1",
+                         "rectangle-pointnet4m_components_raw-v1", "rectangle-pointnet4m_components_consumption-v1",
+                         "rectangle-pointnet4m_components_robust-v1", "rectangle-pointnet4m_stars_raw-v1",
+                         "rectangle-pointnet4m_stars_consumption-v1", "rectangle-pointnet4m_stars_robust-v1",
+                         "rectangle-pointnet4m-obstacles-v1",
                          obstacle_name):
                 extra = self.run_root.parent / name
                 if not (extra / "implementation.json").exists() or any(v.run_root == extra for v in self.views):

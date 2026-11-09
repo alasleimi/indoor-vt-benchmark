@@ -28,6 +28,7 @@ export function sourceParameters(method, receipt) {
 }
 export function hasReconstructionExplanation(method) {
   return method.component !== "initial" && (Boolean(method.finisher) ||
+    method.family === 'pointnet4m' ||
     (method.naked && ["ransac", "zayets"].includes(method.family)));
 }
 function link(method, symbol, file) {
@@ -45,12 +46,12 @@ export function usesConnectedComponentGrouping(method) {
     Object.values(method.code || {}).flat().some(item => typeof item === "object" &&
       item.file === "science/grouping.py" && item.label === "ConnectedComponentsGrouper()");
 }
-function connectedComponentGroupingBody() {
+function connectedComponentGroupingBody(costDescription = 'their stored MPUrge costs') {
   return `<p>Within each local receiver scope, a node is one observed peak; an edge is an accepted match between two receivers. Ignore nodes with no edges and <strong>form connected components first</strong>.</p>
     <div class="component-pruning" data-grouping="connected-components">
     <p>Afterward, if a component contains multiple peaks from one receiver, keep the peak with:</p>
     <ol class="component-pruning-rule"><li><strong>Highest degree.</strong></li><li><strong>Lowest mean incident-edge dissimilarity.</strong></li><li><strong>Lowest index</strong> to break remaining ties.</li></ol>
-    <p>Apply these priorities in order: only ties proceed to the next rule. For a peak ${math("v")}, let ${math("E(v)")} be all accepted matching edges incident to it in this scope, before pruning. Its degree counts those edges; its mean dissimilarity averages their stored MPUrge costs ${math(String.raw`\Delta_e`)}:</p>
+    <p>Apply these priorities in order: only ties proceed to the next rule. For a peak ${math("v")}, let ${math("E(v)")} be all accepted matching edges incident to it in this scope, before pruning. Its degree counts those edges; its mean dissimilarity averages ${costDescription} ${math(String.raw`\Delta_e`)}:</p>
     ${eq(String.raw`d(v)=|E(v)|,\qquad\overline\Delta(v)=\frac{\sum_{e\in E(v)}\Delta_e}{d(v)}`)}
     <p>The final tie-break uses the stable original peak index within that receiver. <strong>Do not recompute components afterward</strong>, even if removing a peak disconnects a component.</p>
     </div><p>Each pruned component is one track, with at most one peak per receiver. Remove identical tracks produced by different scopes.</p>`;
@@ -103,6 +104,32 @@ function mpurgeSteps(method, receipt, p) {
       <p><strong>Purge both endpoints of every reciprocal candidate${method.allow_crossing ? "" : ", including rejected crossings"}.</strong> Accepted matches become graph edges with cost ${math(String.raw`\Delta_{ij}`)}. Rebuild windows and costs from remaining peaks; repeat. Stop when either array is empty or no finite reciprocal minimum exists.</p>`, [[method.allow_crossing ? "CrossingAllowedMPUrgeMatcher" : "_merge_purge_urge", "science/matching.py"]]),
     step("peak-tracks", method.grouping === "stars" ? "Make one star around each peak, within each local scope" : "Build a peak graph within each local scope",
       method.grouping === "stars" ? `<p>A node is an observed peak ${math("v=(i,j)")}; an edge is an accepted pairwise match. Within each unchanged receiver scope, construct:</p>${eq(String.raw`T_v=\{v\}\cup\{u:(u,v)\in E\}`)}<p>${math("E")} is the set of accepted edges in that scope. A star contains its center and its immediate neighbors only. Do not follow longer paths. Pairwise matching is one-to-one, so the star has at most one peak from each receiver. Remove identical tracks across centers and scopes. These overlapping stars replace connected components; there is no degree-based conflict pruning.</p>` : connectedComponentGroupingBody(), [[method.grouping === "stars" ? "StarGrouper" : "ConnectedComponentsGrouper", "science/grouping.py"], ["group_within_scopes", "science/grouping.py"]]),
+    sourceLeastSquares(),
+  ];
+}
+
+function pointnetSteps(method, receipt, p) {
+  return [
+    step('pointnet-scopes', 'Choose local receiver scopes, separately within each AP',
+      settings(val('k', p.neighbors, 'nearest receivers including the center and all boundary ties')) +
+      `<p>Use known 3D receiver coordinates to form scopes ${math('H_s')}. Compare every unordered receiver pair that occurs together in a scope. No A-to-B peak matching is permitted. Keep the original measured peaks; do not equalize fingerprint lengths. Empty fingerprints contribute no matches.</p>`,
+      [['nearest_neighborhoods','science/grouping.py']]),
+    step('pointnet-probabilities', 'Compute symmetric match probabilities with the frozen 4M network',
+      `<p>For range ${math('t')}, let ${math(String.raw`z(t)=(t-\mu)/s`)} use the frozen training mean ${math(String.raw`\mu`)} and standard deviation ${math('s')}. The peak encoder ${math('f')} is a 1→64→64→64 MLP with SiLU after every layer. For nonempty fingerprint ${math('A')}, form:</p>` +
+      eq(String.raw`h(A)=\left[\frac{1}{|A|}\sum_{t\in A}f(z(t)),\;\max_{t\in A} f(z(t))\right]`) +
+      `<p>The maximum is coordinate-wise; padded or absent peaks never enter pooling. For peaks ${math(String.raw`a\in A,b\in B`)} at receivers ${math('x_A,x_B')}, define ${math(String.raw`d=\|x_A-x_B\|_2`)} and:</p>` +
+      eq(String.raw`u_{ab}=[z(a),f(z(a)),h(A),z(b),f(z(b)),h(B),d/s],\quad \ell_{ab}=\tfrac12\{g(u_{ab})+g(u_{ba})\},\quad p_{ab}=\frac1{1+e^{-\ell_{ab}}}`) +
+      `<p>The head ${math('g')} is 387→128→64→1, with SiLU on its two hidden layers. There are 66,433 learned weights and biases. Use the exact 4,000,000-update checkpoint trained on archived R1/R2/L with noise and obstacles; this benchmark rectangle did not train the network. Network weights remain fixed throughout all searches.</p>`,
+      [['load_network','science/pointnet.py']]),
+    step('pointnet-assignment', 'Choose a one-to-one Hungarian assignment maximizing total log odds',
+      eq(String.raw`M=\arg\max_{M:\,|M|=\min(|A|,|B|)}\sum_{(a,b)\in M}\log\frac{p_{ab}}{1-p_{ab}}=\arg\max_M\sum_{(a,b)\in M}\ell_{ab}`) +
+      `<p>Each peak participates in at most one match within this fingerprint pair. Use the logits directly, without numerically converting probabilities back to odds. Match the full smaller fingerprint: there is no probability cutoff or unmatched dummy choice, and crossings are allowed. Store edge dissimilarity ${math(String.raw`\Delta_{ab}=1-p_{ab}`)} for subsequent receiver-conflict tie breaking.</p>`,
+      [['PointNetLogOddsMatcher','science/pointnet.py']]),
+    step('pointnet-groups', method.grouping === 'stars' ? 'Form one local star per peak' : 'Form local connected components',
+      method.grouping === 'stars'
+        ? `<p>Within each scope, one star contains a center peak and its immediately matched neighbors: ${math(String.raw`T_v=\{v\}\cup\{u:(u,v)\in E\}`)}, where ${math('E')} contains Hungarian match edges in that scope. Do not follow longer paths. Each star has at most one peak per receiver. Remove identical tracks across scopes.</p>`
+        : connectedComponentGroupingBody('the probability-derived edge dissimilarities (1 − p)'),
+      [[method.grouping === 'stars' ? 'StarGrouper' : 'ConnectedComponentsGrouper','science/grouping.py'],['group_within_scopes','science/grouping.py']]),
     sourceLeastSquares(),
   ];
 }
@@ -234,7 +261,7 @@ export function reconstructionExplanation(method, receipt) {
   if (!hasReconstructionExplanation(method)) return "";
   const p=sourceParameters(method,receipt);
   if (!p) return "<p class='error'>The source parameter record is unavailable.</p>";
-  const proposer={mpurge:mpurgeSteps,zayets:zayetsSteps,ransac:ransacSteps}[method.family];
+  const proposer={mpurge:mpurgeSteps,zayets:zayetsSteps,ransac:ransacSteps,pointnet4m:pointnetSteps}[method.family];
   const proposals=proposer(method,receipt,p), first=proposals.length+1;
   const finishing=method.finisher?finisherSteps(method,p,first):[];
   const localization=localizationSteps(method,receipt);
@@ -247,7 +274,7 @@ export function reconstructionExplanation(method, receipt) {
     <p><strong>Output:</strong> source coordinates ${math(String.raw`\mathcal V\subset\mathbb R^3`)}. Coordinates, ranges and Euclidean distances ${math(String.raw`\|\cdot\|_2`)} are in metres. True peak identities and source count are not inputs. Source coordinates may lie outside the room.</p></div>
     <p class="algorithm-constructor"><strong>Constructors:</strong> ${constructors.map(l=>link(method,l.label.replace(/\(\)$/,''),l.file)).join(' · ')}</p>
     <nav class="algorithm-index" aria-label="Reconstruction steps">${steps.map((s,i)=>`<a href="#algorithm-step-${i+1}">${i+1}. ${esc(s.title)}</a>`).join('')}</nav>
-    ${ordered(method,`A. ${esc({mpurge:'MPUrge',zayets:'Zayets',ransac:'RANSAC'}[method.family])} source proposals`,1,proposals,'data-stage="proposals"')}
+    ${ordered(method,`A. ${esc({mpurge:'MPUrge',zayets:'Zayets',ransac:'RANSAC',pointnet4m:'PointNet 4M + Hungarian log odds'}[method.family])} source proposals`,1,proposals,'data-stage="proposals"')}
     ${method.finisher?ordered(method,`B. ${esc(finisherNames[method.finisher])}`,first,finishing,`data-stage="finisher" data-finisher="${method.finisher}"`):'<p><strong>No finisher:</strong> return every proposal in P directly as a source.</p>'}
     ${localization.length?ordered(method,"C. Query localization",first+finishing.length,localization,'data-stage="localization"'):''}
     </article>`;
@@ -257,7 +284,9 @@ export function finisherParameterSummary(method,receipt) {
   if (!hasReconstructionExplanation(method)) return "";
   const p=sourceParameters(method,receipt); if(!p)return "";
   const recordOrigin=method.exploratory?"Frozen exploratory":receipt.frozen?.source&&!receipt.parameters?.source?"Frozen upstream":"Selected / inspected";
-  const specs=method.family==='mpurge' ? [
+  const specs=method.family==='pointnet4m' ? [
+    ['k','neighbors','positions','Receiver neighborhood, including center and boundary ties'],
+  ] : method.family==='mpurge' ? [
     ['k','neighbors','positions','Receiver neighborhood, including center and boundary ties'],
     ['h','half_window','peaks','Pattern-window half width; inactive when alpha = 1'],
     [String.raw`\alpha`,'alpha','','Range weight; pattern weight is 1 − alpha'],

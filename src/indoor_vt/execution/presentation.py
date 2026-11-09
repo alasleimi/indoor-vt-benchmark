@@ -35,6 +35,26 @@ def expression(value, indent=0):
 def construction(receipt, config, component='sources'):
     method, p, frozen = receipt['method'], receipt['parameters'], receipt.get('frozen') or {}
     unify = receipt.get('unify')
+    if method.startswith('pointnet4m_'):
+        from .pointnet import METHODS, pointnet_reconstructor
+        variant = method.removesuffix('_joint').removesuffix('_lea')
+        joint, standalone = method.endswith('_joint'), method == variant
+        objects = []
+        if component != 'initial':
+            source_p = p if standalone else p['source'] if joint else frozen['source']
+            objects.append(('method' if component == 'sources' else 'reconstructor',
+                            pointnet_reconstructor(source_p, *METHODS[variant])))
+        if component != 'sources':
+            objects.append(('method' if component == 'initial' else 'initializer',
+                            mpurge_map(p['map'] if joint else frozen['map'], unify=unify)))
+            if component != 'initial':
+                objects.append(('refiner', smart_lea(p['lea'] if joint else p, unify=unify)))
+        return {'code': '\n\n'.join(name+' = '+expression(value) for name, value in objects),
+                'notes': ['Exact frozen 4M PointNet; maximum-cardinality Hungarian log-odds matching within each AP. '
+                          'No threshold, crossing rejection, or PointNet peak unification. Raw returns every valid '
+                          'local group estimate; finishers operate directly on that same candidate pool. '
+                          'Any pipeline unification applies to MPUrge-MAP and SMART-LEA only.'],
+                'receipt_id': receipt['id'], 'component': component, 'parameters': p, 'frozen': frozen}
     if method.startswith('chamfer_'):
         from .chamfer_experiment import chamfer_knn, supplier_constructor
         standalone = method == 'chamfer_knn'
@@ -120,6 +140,28 @@ def effective_count(space):
 def search_spec(method, config):
     selection, family = method['selection'], method['family']
     opt = config['optimization']
+    if family == 'pointnet4m':
+        settings = config['pointnet4m']
+        variant = method['source_variant']
+        source = settings['spaces'][variant]
+        if selection == 'joint':
+            grids = {'Reconstruction': source, 'MPUrge-MAP': opt['mpurge_map'], 'SMART-LEA': opt['smart_lea']}
+            budget = settings['joint_trials']
+            seed = Seeds(opt['seed']).seed('pointnet-joint', variant, method['unify'])
+            strategy = 'Seeded random configurations without replacement, including the stagewise baseline'
+        elif selection == 'stagewise':
+            grids, seed = {'SMART-LEA': opt['smart_lea']}, None
+            budget = effective_count(opt['smart_lea'])
+            strategy = 'Exhaustive Cartesian grid; source and MAP parameters frozen'
+        else:
+            grids = {'Reconstruction': source}
+            budget = min(effective_count(source), settings['source_trials'])
+            seed = Seeds(opt['seed']).seed('pointnet-source', variant) if budget < effective_count(source) else None
+            strategy = 'Seeded random sample without replacement' if seed is not None else 'Exhaustive Cartesian grid'
+        return {'strategy': strategy, 'grids': grids, 'budget': budget, 'seed': str(seed) if seed is not None else None,
+                'base_seed': opt['seed'], 'effective_configurations': prod(effective_count(s) for s in grids.values()),
+                'raw_configurations': prod(prod(len(v) for v in s.values()) for s in grids.values()),
+                'notes': settings['protocol']}
     if method.get('initializer') == 'chamfer_knn':
         settings = config['chamfer']
         standalone = selection == 'localization'

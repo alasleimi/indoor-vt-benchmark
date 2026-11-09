@@ -20,6 +20,48 @@ FINISHER_DISPLAY_NAMES = {
 
 def method_entries(receipt):
     method, label = receipt["method"], receipt["label"]
+    if method.startswith('pointnet4m_'):
+        from .pointnet import METHODS
+        variant = method.removesuffix('_joint').removesuffix('_lea')
+        grouping, ending = METHODS[variant]
+        surrogate = {'raw': 'zayets_naked', 'consumption': 'zayets', 'robust': 'zayets_robust'}[ending]
+        suffix = method[len(variant):]
+        entries = method_entries({**receipt, 'method': surrogate+suffix})
+        source = f'PointNet 4M + Hungarian log odds · {grouping}'
+        source += ' (raw candidates)' if ending == 'raw' else ' + '+FINISHER_DISPLAY_NAMES[ending]
+        for entry in entries:
+            old_source = entry['source_full_name']
+            for key, value in list(entry.items()):
+                if isinstance(value, str):
+                    entry[key] = value.replace(old_source, source)
+            entry.update(family='pointnet4m', grouping=grouping, source_full_name=source,
+                         source_variant=variant, checkpoint_updates=4_000_000)
+            entry['unification_scope'] = ('Not applicable to PointNet reconstruction' if receipt['unify'] is None
+                                         else 'MPUrge-MAP and SMART-LEA only; PointNet matching is unchanged')
+            entry['tags'] = ['family:pointnet4m', 'checkpoint:4m', 'grouping:'+grouping,
+                'matching:hungarian_log_odds', 'finisher:'+('none' if ending == 'raw' else ending),
+                'unification:'+('n/a' if receipt['unify'] is None else 'on' if receipt['unify'] else 'off')]
+            code = {k: list(v) for k, v in entry['code'].items()}
+            if entry['component'] != 'initial':
+                code['Composition constructors'] = [constructor_link('execution/pointnet.py', 'pointnet_reconstructor')]
+                if entry['component'] != 'sources':
+                    code['Composition constructors'] += [constructor_link('execution/presets.py', n)
+                                                          for n in ('mpurge_map', 'smart_lea')]
+                code['Algorithm steps'] = [constructor_link(file, name) for file, name in (
+                    ('science/pointnet.py', 'PointNetLogOddsMatcher'),
+                    ('science/pointnet.py', 'load_network'),
+                    ('science/grouping.py', 'nearest_neighborhoods'),
+                    ('science/grouping.py', 'StarGrouper' if grouping == 'stars' else 'ConnectedComponentsGrouper'),
+                    ('science/grouping.py', 'group_within_scopes'),
+                    ('science/estimation.py', 'Multilateration3D'))]
+                code['Scientific algorithms'] = ['science/pointnet.py', 'science/grouping.py',
+                                                'science/estimation.py', 'science/selection.py']
+                if entry['component'] == 'localization':
+                    code['Scientific algorithms'] += ['science/localization.py', 'science/matching.py']
+            code['Execution and experiment configuration'] = ['execution/pointnet.py',
+                'execution/pointnet_experiment.py', 'execution/localization.py', 'execution/additional.py']
+            entry['code'] = code
+        return entries
     if method.startswith('chamfer_'):
         standalone = method == 'chamfer_knn'
         supplier = method.removeprefix('chamfer_').removesuffix('_joint')

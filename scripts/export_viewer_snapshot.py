@@ -86,7 +86,7 @@ def main():
     for key in sorted(artifacts):
         for owner in view.views:
             try:
-                value = owner.store.get(key)
+                value = owner.get_artifact(key)
             except FileNotFoundError:
                 continue
             write(root/'artifacts'/f'{key}.json.gz', {'id': key, 'value': preview(value)})
