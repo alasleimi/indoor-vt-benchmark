@@ -552,6 +552,7 @@ def serve(data_root, run_root, port=8770):
                 elif request.path in ("/", "/app.js", "/pareto.mjs", "/style.css", "/explorer.css", "/vt-map.js",
                         "/site-runtime.js", "/finisher-explanations.js", "/finisher-explanations.css",
                         "/matching.html", "/peak-matching.js", "/peak-matching.css", "/peak-spatial.js", "/peak-distributions.js",
+                        "/viewer-layout.js", "/viewer-layout.css",
                         "/true-matching.html", "/true-matching.js", "/true-matching.css") and not post:
                     name = "index.html" if request.path == "/" else request.path[1:]
                     content = (asset_root / name).read_bytes()

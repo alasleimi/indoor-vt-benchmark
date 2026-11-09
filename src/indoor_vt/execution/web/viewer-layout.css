@@ -1,0 +1,143 @@
+/* Shared responsive shell, loaded after each page's own styles. */
+.mobile-nav-toggle { display: none; }
+.sidebar .nav-item { text-decoration: none; }
+main, main > *, .page-header > *, .section-heading > *, .match-section-heading > *,
+.filters > *, .condition-card > *, .spatial-controls > *, .truth-toolbar > *,
+.detail-content, .detail-content > *, .chart-legend > *, .table-actions > * {
+  min-width: 0;
+}
+.filters select, .match-card select, .search-controls select, .case-controls select {
+  min-width: 0;
+  max-width: 100%;
+}
+.config-badge, .origin-tag, .stage-badge, .curve-option, .source-links a {
+  overflow-wrap: anywhere;
+}
+.tag-filter-menu { left: auto; right: 0; }
+.tag-filter-menu label { overflow-wrap: anywhere; }
+.tag-filter-menu input { flex: none; }
+.tag-filter > summary { overflow-wrap: anywhere; }
+.sidebar { overflow-y: auto; }
+.sidebar .nav-item { white-space: normal; line-height: 1.5; }
+.nav-icon, .nav-count { flex-shrink: 0; }
+.detail-tabs { max-width: 100%; }
+.detail-content { overflow-wrap: anywhere; }
+.detail-content pre, .detail-content .katex-display { max-width: 100%; overflow-x: auto; }
+.detail-content .katex:not(.katex-display > .katex), .truth-protocol .katex {
+  display: inline-block;
+  max-width: 100%;
+  overflow-x: auto;
+  vertical-align: middle;
+}
+.condition-card > label:first-child { flex: 1 1 280px; }
+.condition-card > label:first-child select { width: 100%; }
+.truth-bound { max-width: 100%; overflow-x: auto; }
+.truth-toolbar > div { min-width: min(250px, 100%); }
+
+@media (max-width: 900px) {
+  .sidebar { padding: 14px 20px; overflow: visible; }
+  .sidebar .brand { margin: 0; gap: 10px; }
+  .sidebar .brand > div { min-width: 0; }
+  .sidebar .brand-mark { flex-shrink: 0; }
+  .mobile-nav-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    margin-left: auto;
+    min-height: 44px;
+    padding: 8px 11px;
+    border: 1px solid #55717a;
+    border-radius: 7px;
+    background: #203d44;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 550;
+    letter-spacing: 0;
+    flex-shrink: 0;
+  }
+  .mobile-nav-toggle svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; }
+  .mobile-nav-toggle[aria-expanded="true"] { background: #37575e; border-color: #99c0c3; }
+  .sidebar nav { display: grid; gap: 5px; margin-top: 14px; }
+  .sidebar.mobile-nav-ready:not(.mobile-nav-open) nav { display: none; }
+  .sidebar .nav-item { justify-content: flex-start; font-size: 13px; padding: 12px; min-height: 44px; gap: 10px; }
+  .sidebar .nav-icon { display: inline-block; }
+  .sidebar .nav-count { margin-left: auto; }
+  .page-header { flex-wrap: wrap; align-items: flex-start; }
+  .page-header .button { font-size: 12px; min-height: 40px; }
+  .filters, .filters:has(#stage-filter:not([hidden])) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tag-filter { grid-column: 1 / -1; }
+  .tag-filter-menu { position: static; width: 100%; max-width: 100%; margin-top: 8px; box-shadow: none; }
+  .tag-filter-menu fieldset { min-width: 0; }
+  .tag-filter-menu label { padding: 5px 0; min-height: 32px; }
+  .section-heading, .match-section-heading, .table-toolbar { flex-wrap: wrap; }
+  .table-actions, .filter-footer, .curve-actions, .evidence-actions { flex-wrap: wrap; }
+  .table-actions { max-width: 100%; }
+  .condition-card > label, .condition-card > a { max-width: 100%; }
+  .match-section-heading .room-actions { justify-content: start; }
+  .spatial-chart, .distribution-chart, .truth-chart-card .chart-host { overflow-x: auto; }
+  /* Keep axes legible and scroll within each chart, rather than shrinking text. */
+  .spatial-chart svg { min-width: 660px; }
+  .distribution-chart svg { min-width: 540px; }
+  .truth-chart-card .truth-plot { min-width: 520px; }
+  .chart-tools { max-width: 100%; }
+  .truth-chart-card .chart-legend { gap: 10px 14px; }
+  .truth-chart-card .chart-legend label { min-height: 28px; }
+}
+
+@media (max-width: 600px) {
+  .sidebar { padding: 12px 15px; }
+  main { padding: 22px 14px; }
+  .page-header { flex-direction: column; }
+  .page-header .button { font-size: 12px; gap: 8px; }
+  .button, .filters select, .match-card select, .tag-filter > summary { min-height: 42px; }
+  .filters select, .filters label { font-size: 12px; }
+  .table-actions { gap: 8px; }
+  .table-actions .search-label { flex-basis: 100%; min-height: 42px; }
+  .filter-footer > span { overflow-wrap: anywhere; }
+  .section-heading { gap: 12px; }
+  .section-heading select { max-width: 100%; }
+  .noise-panel { padding: 16px; }
+  .curve-actions { gap: 10px; }
+  .curve-option { font-size: 11px; }
+  .match-section-heading { flex-direction: column; align-items: stretch; gap: 12px; }
+  .match-section-heading .button { align-self: flex-start; }
+  .match-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 10px; }
+  .condition-card { align-items: stretch; }
+  .condition-card > label { flex: 1 1 100%; width: 100%; }
+  .pair-controls { grid-template-columns: minmax(0, 1fr); }
+  .distribution-panel { padding: 14px 10px; }
+  .distribution-formula { overflow-wrap: anywhere; }
+  .spatial-chart::after, .distribution-chart::after, .truth-chart-card .chart-host::after {
+    content: "Swipe horizontally to see the full chart.";
+    display: block;
+    position: sticky;
+    left: 0;
+    margin: 8px 0;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .spatial-controls select { width: 100%; }
+  .truth-toolbar { gap: 14px; }
+  .truth-toolbar > div { flex-basis: 100%; }
+  .truth-bound > .katex { font-size: 1.05em; }
+  .detail-content { padding: 18px 14px; }
+  .detail-content .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .detail-content .detail-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .drawer-header { padding: 18px 52px 16px 16px; }
+  .drawer-header h2 { font-size: 19px; padding-right: 0; overflow-wrap: anywhere; }
+  .drawer-header .icon-button { right: 12px; top: 16px; width: 36px; height: 36px; }
+  .detail-tabs { padding: 0 14px; gap: 20px; }
+  .trial-context { padding: 10px 14px; }
+  .map-selectors { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .map-selectors label:first-child { grid-column: 1 / -1; }
+  .case-controls, .case-controls label { max-width: 100%; min-width: 0; }
+  .case-controls select { width: 100%; max-width: 100%; }
+  .case-controls label { flex: 1 1 100%; }
+  .parameter-table { table-layout: fixed; }
+  .parameter-table th, .parameter-table td { overflow-wrap: anywhere; padding-left: 8px; padding-right: 8px; }
+  .method-name-row { flex-wrap: wrap; gap: 6px; }
+  .origin-legend { grid-template-columns: minmax(0, 100px) minmax(0, 1fr); }
+  .pager { flex-wrap: wrap; }
+  .toast { max-width: calc(100vw - 28px); white-space: normal; }
+}
