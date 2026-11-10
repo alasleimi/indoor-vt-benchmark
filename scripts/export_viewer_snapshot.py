@@ -17,7 +17,38 @@ from indoor_vt.execution.viewer import MultiStudyView, json_value, preview
 def write(path, value):
     path.parent.mkdir(parents=True, exist_ok=True)
     encoded = json.dumps(json_value(value), separators=(',', ':'), allow_nan=False).encode()
-    path.write_bytes(gzip.compress(encoded, compresslevel=6, mtime=0))
+    write_gzip(path, gzip.compress(encoded, compresslevel=6, mtime=0))
+
+
+def write_gzip(path, compressed):
+    """Bound individual result assets without changing their compressed bytes."""
+    if path.parent.name != 'results' or len(compressed) <= 8 * 1024**2:
+        path.write_bytes(compressed)
+        return
+    parts = []
+    step = 4 * 1024**2
+    for index, start in enumerate(range(0, len(compressed), step)):
+        part = path.with_name(f'{path.name}.part-{index:03d}')
+        part.write_bytes(compressed[start:start + step])
+        parts.append(f'results/{part.name}')
+    manifest = json.dumps({'gzip_parts': parts}, separators=(',', ':')).encode()
+    path.write_bytes(gzip.compress(manifest, compresslevel=6, mtime=0))
+
+
+def compact_result(result):
+    """Store source coordinates once; the static client restores the map arrays."""
+    for case in result.get('cases', []):
+        if case.get('kind') != 'sources':
+            continue
+        predictions = case['predicted']
+        for ap, payload in case['maps'].items():
+            expected = [v for channel in ap.split('+')
+                        for xyz in predictions[channel] for v in xyz]
+            if json_value(payload['predicted']) != expected:
+                raise ValueError(f'Source map coordinates differ for AP {ap}')
+            del payload['predicted']
+        case['map_predictions_from_case'] = True
+    return result
 
 
 def artifact_keys(value):
@@ -77,7 +108,7 @@ def main():
             exported.append(key)
             continue
         result = owner.result(key)
-        write(root/'results'/f'{key}.json.gz', result)
+        write(root/'results'/f'{key}.json.gz', compact_result(result))
         exported.append(key)
         artifacts.update(artifact_keys([c.get('audit') for c in result['cases']]))
         if len(exported) % 100 == 0:
@@ -122,7 +153,7 @@ def main():
     if previous.get('matching_precomputed'):
         manifest['matching_precomputed'] = True
     write(root/'manifest.json.gz', manifest)
-    total = sum(p.stat().st_size for p in root.rglob('*.gz'))
+    total = sum(p.stat().st_size for p in root.rglob('*') if p.is_file())
     print(f'Complete: {len(exported)} outcomes, {len(retained)} cached previews, {total/1024**2:.1f} MiB', flush=True)
 
 

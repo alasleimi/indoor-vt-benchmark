@@ -1,11 +1,16 @@
 // The local viewer uses Python. The publication uses saved data and a browser worker.
 if (globalThis.VT_STATIC) {
+  const { decodeSnapshot } = await import('./static-snapshot.mjs');
   const nativeFetch=globalThis.fetch.bind(globalThis),cache=new Map();
   async function read(name) {
     if(!cache.has(name))cache.set(name,(async()=>{
       const r=await nativeFetch(new URL('snapshot/'+name+'.json.gz',import.meta.url));
       if(!r.ok)throw Error('This item is not included in the published snapshot.');
-      return JSON.parse(await new Response(r.body.pipeThrough(new DecompressionStream('gzip'))).text());
+      return decodeSnapshot(await r.blob(), async part => {
+        const response = await nativeFetch(new URL('snapshot/'+part, import.meta.url));
+        if (!response.ok) throw Error('A saved result part is unavailable.');
+        return response.blob();
+      });
     })());
     return cache.get(name);
   }
